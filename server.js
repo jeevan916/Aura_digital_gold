@@ -16,18 +16,31 @@ const __dirname = path.dirname(__filename);
 // Find Hostinger .env file by walking up directories
 let currentDir = __dirname;
 let foundEnvPath = null;
-while (currentDir !== path.parse(currentDir).root) {
-  const checkPath = path.join(currentDir, '.builds/config/.env');
-  if (fs.existsSync(checkPath)) {
-    foundEnvPath = checkPath;
-    break;
+
+// Specific check for the path shown in screenshots
+const absoluteHostingerPath = "/home/u477692720/domains/app.auragoldelite.com/public_html/.builds/config/.env";
+const screenshotPath = path.resolve(__dirname, "../public_html/.builds/config/.env");
+
+if (fs.existsSync(absoluteHostingerPath)) {
+  foundEnvPath = absoluteHostingerPath;
+} else if (fs.existsSync(screenshotPath)) {
+  foundEnvPath = screenshotPath;
+} else {
+  while (currentDir !== path.parse(currentDir).root) {
+    const checkPath = path.join(currentDir, '.builds/config/.env');
+    if (fs.existsSync(checkPath)) {
+      foundEnvPath = checkPath;
+      break;
+    }
+    currentDir = path.dirname(currentDir);
   }
-  currentDir = path.dirname(currentDir);
 }
 
 if (foundEnvPath) {
+  console.log("Loading .env from:", foundEnvPath);
   dotenv.config({ path: foundEnvPath });
 } else {
+  console.log("No specific .env found, using default dotenv.config()");
   dotenv.config(); // Fallback to local .env
 }
 
@@ -86,8 +99,8 @@ seedPrices.run('gold_916', 6800);
 seedPrices.run('silver', 95);
 
 // Seed or Update Admin
-const adminEmail = getEnv('ADMIN_EMAIL') || 'admin@auragoldelite.com';
-const adminPassword = getEnv('ADMIN_PASSWORD') || 'admin123';
+const adminEmail = getEnv('ADMIN_EMAIL') || 'jeevan@auragoldelite.com';
+const adminPassword = getEnv('ADMIN_PASSWORD') || '12345678';
 const adminCheck = db.prepare("SELECT * FROM users WHERE role = 'admin'").get();
 
 if (!adminCheck) {

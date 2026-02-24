@@ -333,7 +333,7 @@ const Dashboard = () => {
   const profitPercentage = totalInvestment > 0 ? (totalProfit / totalInvestment) * 100 : 0;
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 min-h-screen bg-aurum-black text-white">
       <Header />
       <main className="p-6 space-y-6">
         {/* Balance Card */}
@@ -538,7 +538,7 @@ const BuyGold = () => {
   };
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 min-h-screen bg-aurum-black text-white">
       <Header />
       <main className="p-6 space-y-6">
         <h2 className="font-serif text-2xl font-bold">Buy Digital Gold</h2>
@@ -647,7 +647,7 @@ const RedeemGold = () => {
   if (!user) return null;
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 min-h-screen bg-aurum-black text-white">
       <Header />
       <main className="p-6 space-y-6">
         <h2 className="font-serif text-2xl font-bold">Redeem at Store</h2>
@@ -732,7 +732,7 @@ const AdminReports = () => {
   if (!stats) return <div className="p-6 text-center">Loading reports...</div>;
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 min-h-screen bg-aurum-black text-white">
       <Header />
       <main className="p-6 space-y-8">
         <h2 className="font-serif text-2xl font-bold">Detailed Reports</h2>
@@ -828,7 +828,7 @@ const AdminDashboard = () => {
   const COLORS = ['#E3FF00', '#FF3366', '#FFFFFF'];
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 min-h-screen bg-aurum-black text-white">
       <Header />
       <main className="p-6 space-y-8">
         <div className="flex justify-between items-center">
@@ -963,14 +963,14 @@ const AdminDashboard = () => {
           </div>
           <div className="space-y-3">
             {transactions.slice(0, 10).map(t => (
-              <div key={t.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+              <div key={t.id} className="glass-card p-4 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 font-bold text-[10px]">
+                  <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white/50 font-bold text-[10px]">
                     {t.user_name.charAt(0)}
                   </div>
                   <div>
                     <p className="font-bold text-sm">{t.user_name}</p>
-                    <p className="text-[10px] text-gray-400">{new Date(t.created_at).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-white/40">{new Date(t.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -1009,7 +1009,7 @@ const Profile = () => {
   const currentPrices = prices.reduce((acc, p) => ({ ...acc, [p.metal_type]: p.price_per_gram }), {});
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 min-h-screen bg-aurum-black text-white">
       <Header />
       <main className="p-6 space-y-6">
         <div className="flex flex-col items-center py-8 space-y-4">
@@ -1138,7 +1138,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="max-w-md mx-auto min-h-screen bg-gray-50 shadow-2xl relative">
+        <div className="max-w-md mx-auto min-h-screen bg-aurum-black shadow-2xl relative text-white">
           <AppContent />
           <Toaster position="top-center" />
         </div>
