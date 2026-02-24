@@ -28,6 +28,7 @@ import {
   Bell,
   X,
   Menu,
+  Check,
   Wallet,
   Shield,
   CreditCard,
@@ -734,75 +735,8 @@ import {
   Area
 } from 'recharts';
 
-const AdminReports = () => {
-  const { token } = useAuth();
-  const [stats, setStats] = useState<any>(null);
+const COLORS = ['#E3FF00', '#FF3366', '#00F0FF', '#FFB800'];
 
-  useEffect(() => {
-    fetch('/api/admin/stats', {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.ok ? res.json() : null).then(setStats).catch(() => {});
-  }, []);
-
-  if (!stats) return <div className="p-6 text-center">Loading reports...</div>;
-
-  return (
-    <div className="pb-24 min-h-screen bg-aurum-black text-white">
-      <Header />
-      <main className="p-6 space-y-8">
-        <h2 className="font-serif text-2xl font-bold">Detailed Reports</h2>
-        
-        {/* Metal Wise Breakdown */}
-        <section className="glass-card p-6 space-y-6">
-          <h3 className="font-bold text-sm uppercase tracking-widest text-white/50">Inventory Distribution</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.metalDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="metal_type" tickFormatter={(v) => v.replace('_', ' ').toUpperCase()} stroke="rgba(255,255,255,0.5)" />
-                <YAxis stroke="rgba(255,255,255,0.5)" />
-                <Tooltip contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }} />
-                <Bar dataKey="total_grams" fill="#E3FF00" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        {/* Sales Performance */}
-        <section className="glass-card p-6 space-y-6">
-          <h3 className="font-bold text-sm uppercase tracking-widest text-white/50">Sales Performance (Daily)</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats.dailyVolume}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="date" hide />
-                <YAxis stroke="rgba(255,255,255,0.5)" />
-                <Tooltip contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }} />
-                <Line type="monotone" dataKey="volume" stroke="#FF3366" strokeWidth={3} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 gap-4">
-          {stats.metalDistribution.map((m: any) => (
-            <div key={m.metal_type} className="glass-card p-6 flex justify-between items-center">
-              <div>
-                <p className="text-gold font-bold uppercase text-[10px] tracking-widest">{m.metal_type.replace('_', ' ')}</p>
-                <p className="text-2xl font-bold">{m.total_grams.toFixed(2)}g</p>
-              </div>
-              <div className="text-right">
-                <p className="text-white/50 text-[10px] uppercase font-bold tracking-widest">Total Value</p>
-                <p className="text-xl font-bold text-gold">₹{m.total_value.toLocaleString('en-IN')}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </main>
-      <Navbar />
-    </div>
-  );
-};
 const AdminDashboard = () => {
   const { user, token, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -859,6 +793,22 @@ const AdminDashboard = () => {
       }
     } catch (e) {
       toast.error('Failed to fetch user details');
+    }
+  };
+
+  const updateTransactionStatus = async (id: number, status: string) => {
+    try {
+      const res = await fetch(`/api/admin/transactions/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        setTransactions(transactions.map(t => t.id === id ? { ...t, status } : t));
+        toast.success('Status updated');
+      }
+    } catch (e) {
+      toast.error('Failed to update status');
     }
   };
 
@@ -1073,14 +1023,150 @@ const AdminDashboard = () => {
                         <td className="px-6 py-4 font-mono text-gold">₹{t.amount_in_currency || 0}</td>
                         <td className="px-6 py-4 font-mono text-[10px] text-white/50">{t.payment_id || '-'}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                            {t.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                              {t.status}
+                            </span>
+                            {t.status !== 'completed' && (
+                              <button 
+                                onClick={() => updateTransactionStatus(t.id, 'completed')}
+                                className="p-1 hover:bg-white/10 rounded text-gold"
+                                title="Mark as Completed"
+                              >
+                                <Check size={14} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'reports' && stats && (
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="glass-card p-6">
+                  <h3 className="font-bold text-lg mb-6">Inventory Distribution</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.metalDistribution}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="metal_type" tickFormatter={(v) => v.replace('_', ' ').toUpperCase()} stroke="rgba(255,255,255,0.5)" />
+                        <YAxis stroke="rgba(255,255,255,0.5)" />
+                        <Tooltip contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }} />
+                        <Bar dataKey="total_grams" fill="#E3FF00" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="glass-card p-6">
+                  <h3 className="font-bold text-lg mb-6">Sales Performance</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={stats.dailyVolume}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                        <XAxis dataKey="date" hide />
+                        <YAxis stroke="rgba(255,255,255,0.5)" />
+                        <Tooltip contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }} />
+                        <Line type="monotone" dataKey="volume" stroke="#FF3366" strokeWidth={3} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {stats.metalDistribution.map((m: any) => (
+                  <div key={m.metal_type} className="glass-card p-6 border-l-4 border-gold">
+                    <p className="text-white/50 text-[10px] uppercase font-bold tracking-widest mb-1">{m.metal_type.replace('_', ' ')}</p>
+                    <p className="text-2xl font-bold">{m.total_grams.toFixed(3)}g</p>
+                    <p className="text-gold font-bold mt-2">₹{m.total_value.toLocaleString('en-IN')}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'orders' && (
+            <div className="glass-card overflow-hidden">
+              <div className="p-4 border-b border-white/5">
+                <h3 className="font-bold text-lg">Pending Redemptions</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/5 text-white/50 uppercase text-[10px] font-bold tracking-widest">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Metal</th>
+                      <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {transactions.filter(t => t.type === 'redeem' && t.status === 'pending_at_store').map((t: any) => (
+                      <tr key={t.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4 text-white/50">{new Date(t.created_at).toLocaleString()}</td>
+                        <td className="px-6 py-4 text-white/70">{t.user_name}</td>
+                        <td className="px-6 py-4 uppercase text-xs">{t.metal_type.replace('_', ' ')}</td>
+                        <td className="px-6 py-4 font-mono">{t.amount_in_grams}g</td>
+                        <td className="px-6 py-4">
+                          <button 
+                            onClick={() => updateTransactionStatus(t.id, 'completed')}
+                            className="px-3 py-1 bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white rounded text-xs font-bold transition-colors flex items-center gap-2"
+                          >
+                            <Check size={14} /> Mark Completed
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.filter(t => t.type === 'redeem' && t.status === 'pending_at_store').length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-white/30 italic">No pending redemptions</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="max-w-2xl space-y-6">
+              <div className="glass-card p-6">
+                <h3 className="font-bold text-lg mb-4">General Settings</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+                    <div>
+                      <p className="font-bold text-sm">Maintenance Mode</p>
+                      <p className="text-xs text-white/50">Disable all customer transactions</p>
+                    </div>
+                    <div className="w-12 h-6 bg-white/10 rounded-full relative cursor-pointer">
+                      <div className="absolute left-1 top-1 w-4 h-4 bg-white/30 rounded-full"></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+                    <div>
+                      <p className="font-bold text-sm">Price Auto-Update</p>
+                      <p className="text-xs text-white/50">Sync prices with global market every 5 mins</p>
+                    </div>
+                    <div className="w-12 h-6 bg-gold rounded-full relative cursor-pointer">
+                      <div className="absolute right-1 top-1 w-4 h-4 bg-aurum-black rounded-full"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-card p-6">
+                <h3 className="font-bold text-lg mb-4">Admin Security</h3>
+                <button className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold border border-white/10 transition-colors">
+                  Change Admin Password
+                </button>
               </div>
             </div>
           )}
@@ -1311,7 +1397,7 @@ const AppContent = () => {
       {/* Admin Routes - Full Screen */}
       <Route path="/admin" element={token && user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
       <Route path="/admin/inventory" element={token && user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
-      <Route path="/admin/reports" element={token && user?.role === 'admin' ? <AdminReports /> : <Navigate to="/admin/login" />} />
+      <Route path="/admin/reports" element={token && user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
 
       {/* Shared Routes */}
       <Route path="/profile" element={token ? <CustomerLayout><Profile /></CustomerLayout> : <Navigate to="/login" />} />

@@ -381,6 +381,17 @@ app.get("/api/admin/transactions", authenticateToken, (req, res) => {
   res.json(transactions);
 });
 
+app.post("/api/admin/transactions/:id/status", authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  const { status } = req.body;
+  try {
+    db.prepare("UPDATE transactions SET status = ? WHERE id = ?").run(status, req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
