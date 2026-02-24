@@ -78,12 +78,12 @@ app.use(express.json());
 const JWT_SECRET = process.env.JWT_SECRET || "gold-secret";
 
 // Middleware
-const authenticateToken = (req: any, res: any, next: any) => {
+const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.sendStatus(401);
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();
@@ -104,7 +104,7 @@ app.post("/api/auth/register", (req, res) => {
 
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
-  const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
   if (user && bcrypt.compareSync(password, user.password)) {
     const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET);
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
@@ -119,7 +119,7 @@ app.get("/api/prices", (req, res) => {
   res.json(prices);
 });
 
-app.post("/api/admin/prices", authenticateToken, (req: any, res) => {
+app.post("/api/admin/prices", authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') return res.sendStatus(403);
   const { gold_999, gold_916, silver } = req.body;
   
@@ -132,12 +132,12 @@ app.post("/api/admin/prices", authenticateToken, (req: any, res) => {
 });
 
 // User Data
-app.get("/api/user/profile", authenticateToken, (req: any, res) => {
+app.get("/api/user/profile", authenticateToken, (req, res) => {
   const user = db.prepare("SELECT id, name, email, role, gold_999_balance, gold_916_balance, silver_balance FROM users WHERE id = ?").get(req.user.id);
   res.json(user);
 });
 
-app.get("/api/user/transactions", authenticateToken, (req: any, res) => {
+app.get("/api/user/transactions", authenticateToken, (req, res) => {
   const transactions = db.prepare(`
     SELECT * FROM transactions 
     WHERE user_id = ? 
@@ -166,7 +166,7 @@ app.post("/api/payments/create-order", authenticateToken, async (req, res) => {
   }
 });
 
-app.post("/api/payments/verify", authenticateToken, (req: any, res) => {
+app.post("/api/payments/verify", authenticateToken, (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, metal_type, grams, amount } = req.body;
   
   db.transaction(() => {
@@ -181,9 +181,9 @@ app.post("/api/payments/verify", authenticateToken, (req: any, res) => {
 });
 
 // Redemption
-app.post("/api/redeem", authenticateToken, (req: any, res) => {
+app.post("/api/redeem", authenticateToken, (req, res) => {
   const { metal_type, grams } = req.body;
-  const user: any = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
   
   const balanceField = `${metal_type}_balance`;
   if (user[balanceField] < grams) {
@@ -200,7 +200,7 @@ app.post("/api/redeem", authenticateToken, (req: any, res) => {
 });
 
 // Admin: Reports and Stats
-app.get("/api/admin/stats", authenticateToken, (req: any, res) => {
+app.get("/api/admin/stats", authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') return res.sendStatus(403);
   
   const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'customer'").get();
@@ -230,7 +230,7 @@ app.get("/api/admin/stats", authenticateToken, (req: any, res) => {
   });
 });
 
-app.get("/api/admin/transactions", authenticateToken, (req: any, res) => {
+app.get("/api/admin/transactions", authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') return res.sendStatus(403);
   const transactions = db.prepare(`
     SELECT t.*, u.name as user_name, u.email as user_email 

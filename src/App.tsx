@@ -310,10 +310,10 @@ const Dashboard = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/prices').then(res => res.json()).then(setPrices);
+    fetch('/api/prices').then(res => res.ok ? res.json() : []).then(setPrices).catch(() => {});
     fetch('/api/user/transactions', {
       headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.json()).then(setTransactions);
+    }).then(res => res.ok ? res.json() : []).then(setTransactions).catch(() => {});
   }, []);
 
   if (!user) return null;
@@ -476,7 +476,7 @@ const BuyGold = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('/api/prices').then(res => res.json()).then(setPrices);
+    fetch('/api/prices').then(res => res.ok ? res.json() : []).then(setPrices).catch(() => {});
   }, []);
 
   const currentPrice = prices.find(p => p.metal_type === selectedMetal)?.price_per_gram || 0;
@@ -726,7 +726,7 @@ const AdminReports = () => {
   useEffect(() => {
     fetch('/api/admin/stats', {
       headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.json()).then(setStats);
+    }).then(res => res.ok ? res.json() : null).then(setStats).catch(() => {});
   }, []);
 
   if (!stats) return <div className="p-6 text-center">Loading reports...</div>;
@@ -795,16 +795,16 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    fetch('/api/prices').then(res => res.json()).then(data => {
+    fetch('/api/prices').then(res => res.ok ? res.json() : []).then(data => {
       const p = data.reduce((acc: any, curr: any) => ({ ...acc, [curr.metal_type]: curr.price_per_gram }), {});
       setPrices(p);
-    });
+    }).catch(() => {});
     fetch('/api/admin/transactions', {
       headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.json()).then(setTransactions);
+    }).then(res => res.ok ? res.json() : []).then(setTransactions).catch(() => {});
     fetch('/api/admin/stats', {
       headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.json()).then(setStats);
+    }).then(res => res.ok ? res.json() : null).then(setStats).catch(() => {});
   }, []);
 
   const handleUpdatePrices = async () => {
@@ -997,10 +997,10 @@ const Profile = () => {
 
   useEffect(() => {
     if (token) {
-      fetch('/api/prices').then(res => res.json()).then(setPrices);
+      fetch('/api/prices').then(res => res.ok ? res.json() : []).then(setPrices).catch(() => {});
       fetch('/api/user/transactions', {
         headers: { Authorization: `Bearer ${token}` }
-      }).then(res => res.json()).then(setTransactions);
+      }).then(res => res.ok ? res.json() : []).then(setTransactions).catch(() => {});
     }
   }, [token]);
 
@@ -1099,7 +1099,15 @@ const Profile = () => {
 // --- Main App ---
 
 const AppContent = () => {
-  const { user, token } = useAuth();
+  const { user, token, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-aurum-black">
+        <div className="w-16 h-16 bg-gold rounded-full flex items-center justify-center font-serif font-bold text-aurum-black text-3xl neon-glow animate-pulse">A</div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
