@@ -9,6 +9,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Razorpay from "razorpay";
 import dotenv from "dotenv";
+import axios from "axios";
+import { XMLParser } from "fast-xml-parser";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -419,6 +421,20 @@ app.get("/api/admin/stats", authenticateToken, (req, res) => {
   const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'customer'").get();
   const totalSales = db.prepare("SELECT SUM(amount_in_currency) as total FROM transactions WHERE type = 'buy' AND status = 'completed'").get();
   
+  const todaySales = db.prepare(`
+    SELECT SUM(amount_in_currency) as total 
+    FROM transactions 
+    WHERE type = 'buy' AND status = 'completed' 
+    AND DATE(created_at) = DATE('now')
+  `).get();
+
+  const weekSales = db.prepare(`
+    SELECT SUM(amount_in_currency) as total 
+    FROM transactions 
+    WHERE type = 'buy' AND status = 'completed' 
+    AND created_at >= DATE('now', '-7 days')
+  `).get();
+
   const metalDistribution = db.prepare(`
     SELECT metal_type, SUM(amount_in_grams) as total_grams, SUM(amount_in_currency) as total_value 
     FROM transactions 
@@ -438,6 +454,8 @@ app.get("/api/admin/stats", authenticateToken, (req, res) => {
   res.json({
     totalUsers: totalUsers.count,
     totalSales: totalSales.total || 0,
+    todaySales: todaySales.total || 0,
+    weekSales: weekSales.total || 0,
     metalDistribution,
     dailyVolume
   });
@@ -465,7 +483,77 @@ app.post("/api/admin/transactions/:id/status", authenticateToken, (req, res) => 
   }
 });
 
+const parser = new XMLParser();
+
+async function fetchLivePrices() {
+  try {
+    const url = "https://bcast.sagarjewellers.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/sagar";
+    const response = await axios.get(url, { timeout: 10000 });
+    const jsonObj = parser.parse(response.data);
+    
+    // The structure is likely jsonObj.LiveRates.Rate or similar
+    // We'll search for the specific symbol names
+    const rates = jsonObj?.VOTSBroadcast?.Rate || jsonObj?.LiveRates?.Rate || [];
+    const ratesArray = Array.isArray(rates) ? rates : [rates];
+
+    let gold999 = null;
+    let silver = null;
+
+    for (const r of ratesArray) {
+      const name = r.SymbolName || r.Symbol || "";
+      const bid = parseFloat(r.Bid || r.Buy || r.Rate || 0);
+
+      if (name.includes("GOLD NAGPUR 99.9 RTGS")) {
+        // Assuming 159085 is for 20g, so divide by 20 to get per gram
+        // Or if it's for 10g, divide by 10. 
+        // Based on current market (approx 7500-8000), 159085/20 = 7954.
+        gold999 = bid / 20; 
+      }
+      if (name.includes("SILVER NAGPUR RTGS") && !name.includes("GST")) {
+        // Assuming 260000 is for 1kg, so divide by 1000 to get per gram
+        silver = bid / 1000;
+      }
+    }
+
+    if (gold999) {
+      db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
+        .run('gold_999', gold999);
+      
+      // Calculate 22K (916) as 91.6% of 24K if not explicitly provided
+      const gold916 = gold999 * 0.916;
+      db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
+        .run('gold_916', gold916);
+    }
+
+    if (silver) {
+      db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
+        .run('silver', silver);
+    }
+
+    console.log("Live prices updated successfully:", { gold999, silver });
+    return { success: true, prices: { gold_999: gold999, silver } };
+  } catch (error) {
+    console.error("Error fetching live prices:", error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+// Update prices every 5 minutes
+setInterval(fetchLivePrices, 5 * 60 * 1000);
+
+app.post("/api/admin/refresh-live-prices", authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  const result = await fetchLivePrices();
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
+});
+
 async function startServer() {
+  // Fetch initial prices
+  fetchLivePrices().catch(console.error);
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

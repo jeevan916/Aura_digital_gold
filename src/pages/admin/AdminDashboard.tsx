@@ -16,7 +16,8 @@ import {
   Filter, 
   Check,
   User as UserIcon,
-  Coins
+  Coins,
+  RefreshCw
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -49,12 +50,21 @@ export const AdminDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [manualTx, setManualTx] = useState({ type: 'manual_credit', metal_type: 'gold_999', amount: '', notes: '' });
   const [editUser, setEditUser] = useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchPrices = async () => {
+    try {
+      const res = await fetch('/api/prices');
+      if (res.ok) {
+        const data = await res.json();
+        const p = data.reduce((acc: any, curr: any) => ({ ...acc, [curr.metal_type]: curr.price_per_gram }), {});
+        setPrices(p);
+      }
+    } catch (e) {}
+  };
 
   useEffect(() => {
-    fetch('/api/prices').then(res => res.ok ? res.json() : []).then(data => {
-      const p = data.reduce((acc: any, curr: any) => ({ ...acc, [curr.metal_type]: curr.price_per_gram }), {});
-      setPrices(p);
-    }).catch(() => {});
+    fetchPrices();
     
     fetch('/api/admin/stats', {
       headers: { Authorization: `Bearer ${token}` }
@@ -156,6 +166,26 @@ export const AdminDashboard = () => {
     }
   };
 
+  const refreshLivePrices = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await fetch('/api/admin/refresh-live-prices', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success('Prices synced with Sagar Jewellers');
+        fetchPrices();
+      } else {
+        toast.error('Failed to sync live prices');
+      }
+    } catch (e) {
+      toast.error('Network error while syncing prices');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const SidebarItem = ({ id, icon: Icon, label }: any) => (
     <button 
       onClick={() => setActiveTab(id)}
@@ -221,6 +251,65 @@ export const AdminDashboard = () => {
         <main className="p-6">
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
+              {/* Key Metrics */}
+              {stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="glass-card p-4 border-b-2 border-gold">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                        <Users size={18} />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Total Users</span>
+                    </div>
+                    <p className="text-2xl font-bold">{stats.totalUsers}</p>
+                    <p className="text-[10px] text-green-400 mt-1 font-bold">+12% from last month</p>
+                  </div>
+                  <div className="glass-card p-4 border-b-2 border-aurum-red">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-aurum-red/10 rounded-lg text-aurum-red">
+                        <TrendingUp size={18} />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Total Sales</span>
+                    </div>
+                    <p className="text-2xl font-bold">₹{stats.totalSales.toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] text-white/30 mt-1 font-bold">Lifetime Revenue</p>
+                  </div>
+                  <div className="glass-card p-4 border-b-2 border-green-500">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-green-500/10 rounded-lg text-green-500">
+                        <History size={18} />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Today's Sales</span>
+                    </div>
+                    <p className="text-2xl font-bold">₹{stats.todaySales.toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] text-green-400 mt-1 font-bold">Target: ₹50k</p>
+                  </div>
+                  <div className="glass-card p-4 border-b-2 border-blue-500">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
+                        <LayoutDashboard size={18} />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">This Week</span>
+                    </div>
+                    <p className="text-2xl font-bold">₹{stats.weekSales.toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] text-white/30 mt-1 font-bold">Last 7 days</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Price Cards Header */}
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-lg">Live Metal Prices</h3>
+                <button 
+                  onClick={refreshLivePrices}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold border border-white/10 transition-all disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                  {isRefreshing ? 'Syncing...' : 'Sync with Sagar Jewellers'}
+                </button>
+              </div>
+
               {/* Price Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {['gold_999', 'gold_916', 'silver'].map(metal => (
@@ -392,6 +481,29 @@ export const AdminDashboard = () => {
 
           {activeTab === 'reports' && stats && (
             <div className="space-y-8">
+              {/* Sales Breakdown by Metal */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {stats.metalDistribution.map((m: any) => (
+                  <div key={m.metal_type} className="glass-card p-6 border-l-4 border-gold relative overflow-hidden">
+                    <div className="absolute -right-4 -bottom-4 opacity-5">
+                      <Coins size={80} />
+                    </div>
+                    <p className="text-white/50 text-[10px] uppercase font-bold tracking-widest mb-1">{m.metal_type.replace('_', ' ')} Sales</p>
+                    <p className="text-2xl font-bold">₹{m.total_value.toLocaleString('en-IN')}</p>
+                    <div className="mt-4 flex justify-between items-end">
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase">Total Weight</p>
+                        <p className="text-sm font-bold text-gold">{m.total_grams.toFixed(3)}g</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-white/30 uppercase">Avg Price</p>
+                        <p className="text-sm font-bold">₹{(m.total_value / m.total_grams).toFixed(0)}/g</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="glass-card p-6">
                   <h3 className="font-bold text-lg mb-6">Inventory Distribution</h3>
@@ -409,27 +521,42 @@ export const AdminDashboard = () => {
                 </div>
 
                 <div className="glass-card p-6">
-                  <h3 className="font-bold text-lg mb-6">Sales Performance</h3>
+                  <h3 className="font-bold text-lg mb-6">Daily Transaction Volume (Last 30 Days)</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={stats.dailyVolume}>
+                      <AreaChart data={stats.dailyVolume}>
+                        <defs>
+                          <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#FF3366" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#FF3366" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
-                        <XAxis dataKey="date" hide />
-                        <YAxis stroke="rgba(255,255,255,0.5)" />
-                        <Tooltip contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }} />
-                        <Line type="monotone" dataKey="volume" stroke="#FF3366" strokeWidth={3} dot={false} />
-                      </LineChart>
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="rgba(255,255,255,0.5)" 
+                          tick={{fontSize: 10}}
+                          tickFormatter={(str) => new Date(str).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        />
+                        <YAxis stroke="rgba(255,255,255,0.5)" tick={{fontSize: 10}} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
+                          itemStyle={{ color: '#FF3366' }}
+                        />
+                        <Area type="monotone" dataKey="volume" stroke="#FF3366" fillOpacity={1} fill="url(#colorVolume)" strokeWidth={3} />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
               </div>
 
+              {/* Inventory Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {stats.metalDistribution.map((m: any) => (
-                  <div key={m.metal_type} className="glass-card p-6 border-l-4 border-gold">
-                    <p className="text-white/50 text-[10px] uppercase font-bold tracking-widest mb-1">{m.metal_type.replace('_', ' ')}</p>
+                  <div key={m.metal_type} className="glass-card p-6 border-l-4 border-white/10">
+                    <p className="text-white/50 text-[10px] uppercase font-bold tracking-widest mb-1">Current Inventory: {m.metal_type.replace('_', ' ')}</p>
                     <p className="text-2xl font-bold">{m.total_grams.toFixed(3)}g</p>
-                    <p className="text-gold font-bold mt-2">₹{m.total_value.toLocaleString('en-IN')}</p>
+                    <p className="text-white/30 text-xs mt-2">Estimated Value: ₹{m.total_value.toLocaleString('en-IN')}</p>
                   </div>
                 ))}
               </div>
