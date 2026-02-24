@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Space Grotesk", sans-serif;
+  
+  --color-gold-light: #FFF066;
+  --color-gold: #E3FF00;
+  --color-gold-dark: #B2C900;
+  --color-aurum-red: #FF3366;
+  --color-aurum-black: #050505;
+}
+
+body {
+  background-color: #050505;
+  color: #FFFFFF;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #FFF066 0%, #E3FF00 50%, #B2C900 100%);
+  color: #050505;
+}
+
+.red-gradient {
+  background: linear-gradient(135deg, #FF3366 0%, #CC0033 100%);
+  color: #FFFFFF;
+}
+
+.neon-glow {
+  box-shadow: 0 0 30px rgba(227, 255, 0, 0.15);
+}
+
+.neon-text {
+  text-shadow: 0 0 20px rgba(227, 255, 0, 0.4);
+}
