@@ -51,6 +51,20 @@ export const AdminDashboard = () => {
   const [manualTx, setManualTx] = useState({ type: 'manual_credit', metal_type: 'gold_999', amount: '', notes: '' });
   const [editUser, setEditUser] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [rawPriceData, setRawPriceData] = useState<any>(null);
+  const [showRawModal, setShowRawModal] = useState(false);
+
+  const fetchRawData = async () => {
+    try {
+      const res = await fetch('/api/admin/raw-price-data', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRawPriceData(data.raw);
+      }
+    } catch (e) {}
+  };
 
   const fetchPrices = async () => {
     try {
@@ -174,7 +188,9 @@ export const AdminDashboard = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
+        const data = await res.json();
         toast.success('Prices synced with Sagar Jewellers');
+        setRawPriceData(data.raw);
         fetchPrices();
       } else {
         toast.error('Failed to sync live prices');
@@ -300,14 +316,22 @@ export const AdminDashboard = () => {
               {/* Price Cards Header */}
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-lg">Live Metal Prices</h3>
-                <button 
-                  onClick={refreshLivePrices}
-                  disabled={isRefreshing}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold border border-white/10 transition-all disabled:opacity-50"
-                >
-                  <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-                  {isRefreshing ? 'Syncing...' : 'Sync with Sagar Jewellers'}
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => { fetchRawData(); setShowRawModal(true); }}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold border border-white/10 transition-all"
+                  >
+                    View Raw API Data
+                  </button>
+                  <button 
+                    onClick={refreshLivePrices}
+                    disabled={isRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold border border-white/10 transition-all disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                    {isRefreshing ? 'Syncing...' : 'Sync with Sagar Jewellers'}
+                  </button>
+                </div>
               </div>
 
               {/* Price Cards */}
@@ -894,6 +918,33 @@ export const AdminDashboard = () => {
                 className="flex-1 py-3 bg-gold text-aurum-black rounded-xl text-sm font-bold hover:bg-gold/80 transition-colors"
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raw API Data Modal */}
+      {showRawModal && (
+        <div className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold font-serif">Raw Sagar Jewellers API Data</h3>
+              <button onClick={() => setShowRawModal(false)} className="p-2 hover:bg-white/10 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="bg-black/50 rounded-xl p-4 overflow-auto max-h-[60vh]">
+              <pre className="text-[10px] font-mono text-green-400">
+                {rawPriceData ? JSON.stringify(rawPriceData, null, 2) : 'No data fetched yet. Click sync to fetch.'}
+              </pre>
+            </div>
+            <div className="flex justify-end">
+              <button 
+                onClick={() => setShowRawModal(false)}
+                className="px-6 py-2 bg-gold text-aurum-black rounded-xl text-sm font-bold hover:bg-gold/80 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

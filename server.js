@@ -485,11 +485,14 @@ app.post("/api/admin/transactions/:id/status", authenticateToken, (req, res) => 
 
 const parser = new XMLParser();
 
+let lastRawPriceData = null;
+
 async function fetchLivePrices() {
   try {
     const url = "https://bcast.sagarjewellers.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/sagar";
     const response = await axios.get(url, { timeout: 10000 });
     const jsonObj = parser.parse(response.data);
+    lastRawPriceData = jsonObj;
     
     // The structure is likely jsonObj.LiveRates.Rate or similar
     // We'll search for the specific symbol names
@@ -545,10 +548,15 @@ app.post("/api/admin/refresh-live-prices", authenticateToken, async (req, res) =
   if (req.user.role !== 'admin') return res.sendStatus(403);
   const result = await fetchLivePrices();
   if (result.success) {
-    res.json(result);
+    res.json({ ...result, raw: lastRawPriceData });
   } else {
     res.status(500).json(result);
   }
+});
+
+app.get("/api/admin/raw-price-data", authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  res.json({ raw: lastRawPriceData });
 });
 
 async function startServer() {
