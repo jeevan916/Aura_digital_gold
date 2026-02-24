@@ -127,6 +127,7 @@ app.use(express.json());
 
 // Temporary debug route to see what env vars Hostinger is actually passing
 app.get("/api/debug/env", (req, res) => {
+  const users = db.prepare("SELECT id, name, email, role FROM users").all();
   res.json({
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
@@ -135,8 +136,36 @@ app.get("/api/debug/env", (req, res) => {
     DEFAULT_EMAIL: adminEmail,
     DEFAULT_PASSWORD: adminPassword,
     DIRNAME: __dirname,
-    FOUND_ENV_PATH: foundEnvPath
+    FOUND_ENV_PATH: foundEnvPath,
+    USERS_IN_DB: users
   });
+});
+
+// Force reset admin route
+app.get("/api/debug/reset-admin", (req, res) => {
+  try {
+    const email = getEnv('ADMIN_EMAIL') || 'admin@auragoldelite.com';
+    const password = getEnv('ADMIN_PASSWORD') || 'admin123';
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    
+    // Delete any existing admin
+    db.prepare("DELETE FROM users WHERE role = 'admin'").run();
+    
+    // Delete any customer with the same email
+    db.prepare("DELETE FROM users WHERE email = ?").run(email);
+    
+    // Insert fresh admin
+    db.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)").run(
+      'Admin', 
+      email, 
+      hashedPassword, 
+      'admin'
+    );
+    
+    res.json({ success: true, message: `Admin reset to ${email}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 const JWT_SECRET = getEnv('JWT_SECRET') || "gold-secret";
@@ -168,12 +197,18 @@ app.post("/api/auth/register", (req, res) => {
 
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-  if (user && bcrypt.compareSync(password, user.password)) {
+  const cleanEmail = email ? email.trim() : '';
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(cleanEmail);
+  
+  if (!user) {
+    return res.status(401).json({ error: "Invalid credentials (User not found)" });
+  }
+  
+  if (bcrypt.compareSync(password, user.password)) {
     const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET);
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } else {
-    res.status(401).json({ error: "Invalid credentials" });
+    res.status(401).json({ error: "Invalid credentials (Wrong password)" });
   }
 });
 
