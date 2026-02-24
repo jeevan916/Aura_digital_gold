@@ -1,3 +1,4 @@
+import fs from "fs";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -12,7 +13,20 @@ import dotenv from "dotenv";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+// Check if Hostinger specific .env exists
+const hostingerEnvPath1 = "/public_html/.builds/config/.env";
+const hostingerEnvPath2 = path.resolve(__dirname, ".builds/config/.env");
+const hostingerEnvPath3 = path.resolve(__dirname, "../.builds/config/.env");
+
+if (fs.existsSync(hostingerEnvPath1)) {
+  dotenv.config({ path: hostingerEnvPath1 });
+} else if (fs.existsSync(hostingerEnvPath2)) {
+  dotenv.config({ path: hostingerEnvPath2 });
+} else if (fs.existsSync(hostingerEnvPath3)) {
+  dotenv.config({ path: hostingerEnvPath3 });
+} else {
+  dotenv.config();
+}
 
 const db = new Database("gold_app.db");
 
