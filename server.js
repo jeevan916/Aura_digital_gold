@@ -68,17 +68,21 @@ db.exec(`
     gold_999_balance REAL DEFAULT 0,
     gold_916_balance REAL DEFAULT 0,
     silver_balance REAL DEFAULT 0,
+    address TEXT,
+    mobile TEXT,
+    alt_mobile TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
-    type TEXT, -- 'buy', 'redeem'
+    type TEXT, -- 'buy', 'redeem', 'manual_credit', 'manual_debit'
     metal_type TEXT, -- 'gold_999', 'gold_916', 'silver'
     amount_in_grams REAL,
     amount_in_currency REAL,
     payment_id TEXT,
+    notes TEXT,
     status TEXT DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id)
@@ -91,6 +95,12 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+// Migrations
+try { db.exec("ALTER TABLE users ADD COLUMN address TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN mobile TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN alt_mobile TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE transactions ADD COLUMN notes TEXT"); } catch(e) {}
 
 // Seed initial prices if not exist
 const seedPrices = db.prepare("INSERT OR IGNORE INTO prices (metal_type, price_per_gram) VALUES (?, ?)");
@@ -329,12 +339,75 @@ app.get("/api/admin/users", authenticateToken, (req, res) => {
 app.get("/api/admin/users/:id", authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') return res.sendStatus(403);
   try {
-    const user = db.prepare("SELECT id, name, email, created_at, gold_999_balance, gold_916_balance, silver_balance FROM users WHERE id = ?").get(req.params.id);
+    const user = db.prepare("SELECT id, name, email, created_at, gold_999_balance, gold_916_balance, silver_balance, address, mobile, alt_mobile FROM users WHERE id = ?").get(req.params.id);
     if (!user) return res.status(404).json({ error: "User not found" });
     
     const transactions = db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC").all(req.params.id);
     
-    res.json({ user, transactions });
+    // Calculate stats
+    const stats = {
+      total_gold_999_purchased: transactions.filter(t => t.type === 'buy' && t.metal_type === 'gold_999' && t.status === 'completed').reduce((acc, t) => acc + t.amount_in_grams, 0),
+      total_gold_916_purchased: transactions.filter(t => t.type === 'buy' && t.metal_type === 'gold_916' && t.status === 'completed').reduce((acc, t) => acc + t.amount_in_grams, 0),
+      total_silver_purchased: transactions.filter(t => t.type === 'buy' && t.metal_type === 'silver' && t.status === 'completed').reduce((acc, t) => acc + t.amount_in_grams, 0),
+      
+      avg_cost_gold_999: 0,
+      avg_cost_gold_916: 0,
+      avg_cost_silver: 0
+    };
+
+    const gold999Buys = transactions.filter(t => t.type === 'buy' && t.metal_type === 'gold_999' && t.status === 'completed');
+    if (gold999Buys.length > 0) {
+      stats.avg_cost_gold_999 = gold999Buys.reduce((acc, t) => acc + t.amount_in_currency, 0) / stats.total_gold_999_purchased;
+    }
+
+    const gold916Buys = transactions.filter(t => t.type === 'buy' && t.metal_type === 'gold_916' && t.status === 'completed');
+    if (gold916Buys.length > 0) {
+      stats.avg_cost_gold_916 = gold916Buys.reduce((acc, t) => acc + t.amount_in_currency, 0) / stats.total_gold_916_purchased;
+    }
+
+    const silverBuys = transactions.filter(t => t.type === 'buy' && t.metal_type === 'silver' && t.status === 'completed');
+    if (silverBuys.length > 0) {
+      stats.avg_cost_silver = silverBuys.reduce((acc, t) => acc + t.amount_in_currency, 0) / stats.total_silver_purchased;
+    }
+    
+    res.json({ user, transactions, stats });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/admin/users/:id/update", authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  const { name, email, address, mobile, alt_mobile } = req.body;
+  try {
+    db.prepare("UPDATE users SET name = ?, email = ?, address = ?, mobile = ?, alt_mobile = ? WHERE id = ?")
+      .run(name, email, address, mobile, alt_mobile, req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/admin/users/:id/manual-transaction", authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  const { type, metal_type, amount_in_grams, notes } = req.body;
+  const userId = req.params.id;
+
+  try {
+    db.transaction(() => {
+      const balanceField = `${metal_type}_balance`;
+      if (type === 'manual_credit') {
+        db.prepare(`UPDATE users SET ${balanceField} = ${balanceField} + ? WHERE id = ?`).run(amount_in_grams, userId);
+      } else if (type === 'manual_debit') {
+        db.prepare(`UPDATE users SET ${balanceField} = ${balanceField} - ? WHERE id = ?`).run(amount_in_grams, userId);
+      } else {
+        throw new Error("Invalid transaction type");
+      }
+
+      db.prepare("INSERT INTO transactions (user_id, type, metal_type, amount_in_grams, status, notes) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(userId, type, metal_type, amount_in_grams, 'completed', notes);
+    })();
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

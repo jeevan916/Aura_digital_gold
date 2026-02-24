@@ -746,6 +746,8 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState<any>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [manualTx, setManualTx] = useState({ type: 'manual_credit', metal_type: 'gold_999', amount: '', notes: '' });
+  const [editUser, setEditUser] = useState<any>(null);
 
   useEffect(() => {
     fetch('/api/prices').then(res => res.ok ? res.json() : []).then(data => {
@@ -809,6 +811,47 @@ const AdminDashboard = () => {
       }
     } catch (e) {
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleManualTransaction = async () => {
+    if (!selectedUser || !manualTx.amount) return;
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUser.user.id}/manual-transaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: manualTx.type,
+          metal_type: manualTx.metal_type,
+          amount_in_grams: parseFloat(manualTx.amount),
+          notes: manualTx.notes
+        })
+      });
+      if (res.ok) {
+        toast.success('Transaction successful');
+        fetchUserDetails(selectedUser.user.id);
+        setManualTx({ ...manualTx, amount: '', notes: '' });
+      }
+    } catch (e) {
+      toast.error('Transaction failed');
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editUser) return;
+    try {
+      const res = await fetch(`/api/admin/users/${editUser.id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(editUser)
+      });
+      if (res.ok) {
+        toast.success('User updated');
+        fetchUserDetails(editUser.id);
+        setEditUser(null);
+      }
+    } catch (e) {
+      toast.error('Update failed');
     }
   };
 
@@ -1176,49 +1219,146 @@ const AdminDashboard = () => {
       {/* User Details Modal */}
       {selectedUser && (
         <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-white/10 flex justify-between items-center sticky top-0 bg-[#111] z-10">
               <h2 className="text-xl font-bold font-serif">Customer Details</h2>
-              <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-white/10 rounded-full">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setEditUser(selectedUser.user)}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold transition-colors"
+                >
+                  Edit Profile
+                </button>
+                <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-white/10 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
             </div>
             
             <div className="p-6 space-y-8">
-              {/* Profile Header */}
-              <div className="flex items-center gap-6">
-                <div className="w-20 h-20 bg-gold/10 rounded-full flex items-center justify-center text-gold">
-                  <UserIcon size={40} />
+              {/* Profile Header & Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 bg-gold/10 rounded-full flex items-center justify-center text-gold">
+                    <UserIcon size={40} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold">{selectedUser.user.name}</h3>
+                    <p className="text-white/50">{selectedUser.user.email}</p>
+                    <p className="text-white/30 text-xs mt-1">Joined: {new Date(selectedUser.user.created_at).toLocaleDateString()}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold">{selectedUser.user.name}</h3>
-                  <p className="text-white/50">{selectedUser.user.email}</p>
-                  <p className="text-white/30 text-xs mt-1">Joined: {new Date(selectedUser.user.created_at).toLocaleDateString()}</p>
+                <div className="glass-card p-4 space-y-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/50">Contact Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-white/30 text-[10px] uppercase">Mobile</p>
+                      <p>{selectedUser.user.mobile || 'Not set'}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/30 text-[10px] uppercase">Alt Mobile</p>
+                      <p>{selectedUser.user.alt_mobile || '-'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-white/30 text-[10px] uppercase">Address</p>
+                      <p className="text-xs">{selectedUser.user.address || 'No address provided'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Holdings */}
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-widest text-white/50 mb-4">Current Holdings</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                    <p className="text-[10px] uppercase text-white/50">24K Gold</p>
-                    <p className="text-xl font-bold text-gold">{selectedUser.user.gold_999_balance.toFixed(4)}g</p>
-                  </div>
-                  <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                    <p className="text-[10px] uppercase text-white/50">22K Gold</p>
-                    <p className="text-xl font-bold text-gold">{selectedUser.user.gold_916_balance.toFixed(4)}g</p>
-                  </div>
-                  <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                    <p className="text-[10px] uppercase text-white/50">Silver</p>
-                    <p className="text-xl font-bold text-white">{selectedUser.user.silver_balance.toFixed(4)}g</p>
+              {/* Stats & Valuation */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['gold_999', 'gold_916', 'silver'].map(metal => {
+                  const balance = selectedUser.user[`${metal}_balance`];
+                  const totalPurchased = selectedUser.stats[`total_${metal}_purchased`];
+                  const avgCost = selectedUser.stats[`avg_cost_${metal}`];
+                  const currentPrice = prices[metal] || 0;
+                  const currentValue = balance * currentPrice;
+                  const totalCost = totalPurchased * avgCost;
+                  const profit = currentValue - (balance * avgCost);
+                  const profitPercent = avgCost > 0 ? (profit / (balance * avgCost)) * 100 : 0;
+
+                  return (
+                    <div key={metal} className="glass-card p-4 border-l-4 border-gold">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="text-[10px] uppercase font-bold tracking-widest text-white/50">{metal.replace('_', ' ')}</p>
+                        <span className="text-xs font-bold text-gold">{balance.toFixed(3)}g</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-white/30">Total Purchased</span>
+                          <span>{totalPurchased.toFixed(3)}g</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-white/30">Avg Cost</span>
+                          <span>₹{avgCost.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-white/30">Current Value</span>
+                          <span className="text-gold font-bold">₹{currentValue.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] pt-1 border-t border-white/5">
+                          <span className="text-white/30">P/L</span>
+                          <span className={`font-bold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {profit >= 0 ? '+' : ''}₹{Math.abs(profit).toLocaleString('en-IN')} ({profitPercent.toFixed(1)}%)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Manual Transaction Form */}
+              <div className="glass-card p-6 border border-gold/20">
+                <h4 className="text-sm font-bold uppercase tracking-widest text-gold mb-4">Manual Wallet Adjustment</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <select 
+                    value={manualTx.type}
+                    onChange={(e) => setManualTx({...manualTx, type: e.target.value})}
+                    className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                  >
+                    <option value="manual_credit">Credit (Add)</option>
+                    <option value="manual_debit">Debit (Subtract)</option>
+                  </select>
+                  <select 
+                    value={manualTx.metal_type}
+                    onChange={(e) => setManualTx({...manualTx, metal_type: e.target.value})}
+                    className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                  >
+                    <option value="gold_999">24K Gold (999)</option>
+                    <option value="gold_916">22K Gold (916)</option>
+                    <option value="silver">Silver (999)</option>
+                  </select>
+                  <input 
+                    type="number" 
+                    placeholder="Amount in grams"
+                    value={manualTx.amount}
+                    onChange={(e) => setManualTx({...manualTx, amount: e.target.value})}
+                    className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                  />
+                  <button 
+                    onClick={handleManualTransaction}
+                    className="bg-gold text-aurum-black font-bold rounded-lg text-sm hover:bg-gold/80 transition-colors"
+                  >
+                    Apply Adjustment
+                  </button>
+                  <div className="md:col-span-4">
+                    <input 
+                      type="text" 
+                      placeholder="Reason / Notes for this manual adjustment..."
+                      value={manualTx.notes}
+                      onChange={(e) => setManualTx({...manualTx, notes: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Transaction History */}
               <div>
-                <h4 className="text-sm font-bold uppercase tracking-widest text-white/50 mb-4">Transaction History</h4>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-white/50 mb-4">Full Transaction History</h4>
                 <div className="border border-white/10 rounded-xl overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-white/5 text-white/50 uppercase text-[10px] font-bold">
@@ -1228,6 +1368,7 @@ const AdminDashboard = () => {
                         <th className="px-4 py-3">Metal</th>
                         <th className="px-4 py-3">Qty</th>
                         <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Notes</th>
                         <th className="px-4 py-3">Status</th>
                       </tr>
                     </thead>
@@ -1235,12 +1376,17 @@ const AdminDashboard = () => {
                       {selectedUser.transactions.map((t: any) => (
                         <tr key={t.id}>
                           <td className="px-4 py-3 text-white/50">{new Date(t.created_at).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 uppercase font-bold text-xs">{t.type}</td>
-                          <td className="px-4 py-3 uppercase text-xs">{t.metal_type.replace('_', ' ')}</td>
-                          <td className="px-4 py-3">{t.amount_in_grams}g</td>
-                          <td className="px-4 py-3 text-gold">₹{t.amount_in_currency}</td>
+                          <td className="px-4 py-3 uppercase font-bold text-[10px]">
+                            <span className={t.type.includes('credit') ? 'text-green-400' : t.type.includes('debit') ? 'text-red-400' : ''}>
+                              {t.type.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 uppercase text-[10px]">{t.metal_type.replace('_', ' ')}</td>
+                          <td className="px-4 py-3 font-mono">{t.amount_in_grams}g</td>
+                          <td className="px-4 py-3 text-gold">₹{t.amount_in_currency || 0}</td>
+                          <td className="px-4 py-3 text-[10px] text-white/40 max-w-xs truncate">{t.notes || t.payment_id || '-'}</td>
                           <td className="px-4 py-3">
-                            <span className={`text-[10px] px-2 py-0.5 rounded ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                               {t.status}
                             </span>
                           </td>
@@ -1250,6 +1396,77 @@ const AdminDashboard = () => {
                   </table>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-6">
+            <h3 className="text-xl font-bold font-serif">Edit Customer Profile</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase text-white/50 font-bold mb-1 block">Full Name</label>
+                <input 
+                  type="text" 
+                  value={editUser.name}
+                  onChange={(e) => setEditUser({...editUser, name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase text-white/50 font-bold mb-1 block">Email Address</label>
+                <input 
+                  type="email" 
+                  value={editUser.email}
+                  onChange={(e) => setEditUser({...editUser, email: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] uppercase text-white/50 font-bold mb-1 block">Mobile</label>
+                  <input 
+                    type="text" 
+                    value={editUser.mobile || ''}
+                    onChange={(e) => setEditUser({...editUser, mobile: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase text-white/50 font-bold mb-1 block">Alt Mobile</label>
+                  <input 
+                    type="text" 
+                    value={editUser.alt_mobile || ''}
+                    onChange={(e) => setEditUser({...editUser, alt_mobile: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase text-white/50 font-bold mb-1 block">Address</label>
+                <textarea 
+                  value={editUser.address || ''}
+                  onChange={(e) => setEditUser({...editUser, address: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-gold h-24 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setEditUser(null)}
+                className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUpdateUser}
+                className="flex-1 py-3 bg-gold text-aurum-black rounded-xl text-sm font-bold hover:bg-gold/80 transition-colors"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
