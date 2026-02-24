@@ -17,7 +17,22 @@ import {
   LogOut,
   ChevronRight,
   Plus,
-  ArrowUpRight
+  ArrowUpRight,
+  Search,
+  Filter,
+  ChevronDown,
+  Users,
+  Settings,
+  FileText,
+  Gift,
+  Bell,
+  X,
+  Menu,
+  Wallet,
+  Shield,
+  CreditCard,
+  Minus,
+  ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -789,205 +804,374 @@ const AdminReports = () => {
   );
 };
 const AdminDashboard = () => {
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [prices, setPrices] = useState<any>({ gold_999: 0, gold_916: 0, silver: 0 });
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     fetch('/api/prices').then(res => res.ok ? res.json() : []).then(data => {
       const p = data.reduce((acc: any, curr: any) => ({ ...acc, [curr.metal_type]: curr.price_per_gram }), {});
       setPrices(p);
     }).catch(() => {});
-    fetch('/api/admin/transactions', {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(res => res.ok ? res.json() : []).then(setTransactions).catch(() => {});
+    
     fetch('/api/admin/stats', {
       headers: { Authorization: `Bearer ${token}` }
     }).then(res => res.ok ? res.json() : null).then(setStats).catch(() => {});
+
+    fetch('/api/admin/users', {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(res => res.ok ? res.json() : []).then(setUsers).catch(() => {});
+
+    fetch('/api/admin/transactions', {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(res => res.ok ? res.json() : []).then(setTransactions).catch(() => {});
   }, []);
 
-  const handleUpdatePrices = async () => {
+  const updatePrice = async (metal: string, price: number) => {
     try {
       const res = await fetch('/api/admin/prices', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(prices)
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ metal_type: metal, price_per_gram: price })
       });
-      if (res.ok) toast.success('Prices updated!');
+      if (res.ok) {
+        setPrices({ ...prices, [metal]: price });
+        toast.success('Price updated');
+      }
     } catch (e) {
-      toast.error('Update failed');
+      toast.error('Failed to update price');
     }
   };
 
+  const fetchUserDetails = async (userId: number) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedUser(data);
+      }
+    } catch (e) {
+      toast.error('Failed to fetch user details');
+    }
+  };
+
+  const SidebarItem = ({ id, icon: Icon, label }: any) => (
+    <button 
+      onClick={() => setActiveTab(id)}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === id ? 'bg-gold text-aurum-black font-bold' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
+    >
+      <Icon size={18} />
+      <span>{label}</span>
+    </button>
+  );
+
   if (user?.role !== 'admin') return <Navigate to="/" />;
 
-  const COLORS = ['#E3FF00', '#FF3366', '#FFFFFF'];
-
   return (
-    <div className="pb-24 min-h-screen bg-aurum-black text-white">
-      <Header />
-      <main className="p-6 space-y-8">
-        <div className="flex justify-between items-center">
-          <h2 className="font-serif text-2xl font-bold">Admin Insights</h2>
-          <Link to="/admin/reports" className="bg-gold/10 text-gold px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 neon-glow">
-            <TrendingUp size={12} />
-            Full Reports
-          </Link>
-        </div>
-
-        {/* Stats Overview */}
-        {stats && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="glass-card p-4">
-              <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Total Customers</p>
-              <p className="text-2xl font-bold text-white">{stats.totalUsers}</p>
+    <div className="min-h-screen bg-aurum-black text-white flex">
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0A0A0A] border-r border-white/5 transform transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}>
+        <div className="p-6 border-b border-white/5 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gold rounded-lg flex items-center justify-center">
+              <Shield className="text-aurum-black" size={16} />
             </div>
-            <div className="glass-card p-4">
-              <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Total Sales</p>
-              <p className="text-2xl font-bold text-gold neon-text">₹{stats.totalSales.toLocaleString('en-IN')}</p>
+            <span className="font-serif font-bold text-lg">Admin Panel</span>
+          </div>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-white/50">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-80px)]">
+          <SidebarItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
+          <SidebarItem id="users" icon={Users} label="Customers" />
+          <SidebarItem id="transactions" icon={History} label="Transactions" />
+          <SidebarItem id="reports" icon={TrendingUp} label="Reports" />
+          <SidebarItem id="orders" icon={Store} label="Sell Orders" />
+          <SidebarItem id="settings" icon={Settings} label="Settings" />
+          
+          <div className="pt-8 mt-8 border-t border-white/5">
+            <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all">
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 min-w-0 h-screen overflow-y-auto">
+        <header className="sticky top-0 z-40 bg-aurum-black/80 backdrop-blur-md border-b border-white/5 px-6 py-4 flex items-center justify-between">
+          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-white">
+            <Menu size={24} />
+          </button>
+          <h1 className="text-xl font-bold capitalize">{activeTab}</h1>
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+              <Bell size={16} className="text-white/70" />
+            </div>
+            <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold">
+              A
             </div>
           </div>
-        )}
+        </header>
 
-        {/* Sales Chart */}
-        {stats?.dailyVolume && (
-          <section className="glass-card p-6 space-y-4">
-            <h3 className="font-bold text-sm uppercase tracking-widest text-white/50">Sales Volume (30 Days)</h3>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.dailyVolume}>
-                  <defs>
-                    <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#E3FF00" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#E3FF00" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
-                  <XAxis dataKey="date" hide />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#050505', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
-                    formatter={(value: any) => [`₹${value.toLocaleString('en-IN')}`, 'Volume']}
-                  />
-                  <Area type="monotone" dataKey="volume" stroke="#E3FF00" fillOpacity={1} fill="url(#colorVolume)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-        )}
-
-        {/* Metal Distribution */}
-        {stats?.metalDistribution && (
-          <section className="glass-card p-6 space-y-4">
-            <h3 className="font-bold text-sm uppercase tracking-widest text-white/50">Metal Wise Holding</h3>
-            <div className="grid grid-cols-2 gap-6 items-center">
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats.metalDistribution}
-                      innerRadius={30}
-                      outerRadius={50}
-                      paddingAngle={5}
-                      dataKey="total_grams"
-                      stroke="none"
-                    >
-                      {stats.metalDistribution.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-2">
-                {stats.metalDistribution.map((m: any, i: number) => (
-                  <div key={m.metal_type} className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full neon-glow" style={{ backgroundColor: COLORS[i] }} />
-                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{m.metal_type.replace('_', ' ')}</span>
-                    <span className="text-[10px] font-bold ml-auto text-white">{m.total_grams.toFixed(2)}g</span>
+        <main className="p-6">
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              {/* Price Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['gold_999', 'gold_916', 'silver'].map(metal => (
+                  <div key={metal} className="glass-card p-6 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <Coins size={48} />
+                    </div>
+                    <p className="text-white/50 text-xs font-bold uppercase tracking-widest mb-2">{metal.replace('_', ' ')} Price</p>
+                    <div className="flex items-end gap-2">
+                      <span className="text-2xl font-bold text-white">₹</span>
+                      <input 
+                        type="number" 
+                        value={prices[metal] || ''}
+                        onChange={(e) => updatePrice(metal, parseFloat(e.target.value))}
+                        className="bg-transparent text-3xl font-bold text-gold focus:outline-none w-32 border-b border-white/10 focus:border-gold"
+                      />
+                      <span className="text-white/50 text-sm mb-1">/gm</span>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </section>
-        )}
 
-        {/* Price Management */}
-        <section className="glass-card p-6 space-y-4 border-gold/30">
-          <h3 className="font-bold text-sm uppercase tracking-widest text-gold">Update Live Prices</h3>
-          <div className="grid gap-4">
-            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/10">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">24K Gold (999)</label>
-              <input 
-                type="number" 
-                value={prices.gold_999} 
-                onChange={(e) => setPrices({...prices, gold_999: parseFloat(e.target.value)})}
-                className="bg-transparent text-right font-bold focus:outline-none w-24 text-gold"
-              />
-            </div>
-            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/10">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">22K Gold (916)</label>
-              <input 
-                type="number" 
-                value={prices.gold_916} 
-                onChange={(e) => setPrices({...prices, gold_916: parseFloat(e.target.value)})}
-                className="bg-transparent text-right font-bold focus:outline-none w-24 text-gold"
-              />
-            </div>
-            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/10">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-white/50">Silver (999)</label>
-              <input 
-                type="number" 
-                value={prices.silver} 
-                onChange={(e) => setPrices({...prices, silver: parseFloat(e.target.value)})}
-                className="bg-transparent text-right font-bold focus:outline-none w-24 text-white"
-              />
-            </div>
-          </div>
-          <button 
-            onClick={handleUpdatePrices}
-            className="w-full gold-gradient text-aurum-black font-bold py-4 rounded-xl mt-2 shadow-lg uppercase tracking-widest"
-          >
-            Broadcast New Prices
-          </button>
-        </section>
-
-        {/* Recent Transactions */}
-        <section className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="font-serif text-xl font-bold">Recent Activity</h3>
-            <button className="text-xs text-aurum-red font-bold">Export CSV</button>
-          </div>
-          <div className="space-y-3">
-            {transactions.slice(0, 10).map(t => (
-              <div key={t.id} className="glass-card p-4 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white/50 font-bold text-[10px]">
-                    {t.user_name.charAt(0)}
+              {/* Stats Overview */}
+              {stats && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="glass-card p-6">
+                    <h3 className="font-bold text-lg mb-4">Inventory Overview</h3>
+                    <div className="space-y-4">
+                      {stats.metalDistribution.map((m: any) => (
+                        <div key={m.metal_type} className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                          <span className="uppercase text-xs font-bold tracking-widest text-white/70">{m.metal_type.replace('_', ' ')}</span>
+                          <span className="text-gold font-bold">{m.total_grams.toFixed(3)}g</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-sm">{t.user_name}</p>
-                    <p className="text-[10px] text-white/40">{new Date(t.created_at).toLocaleDateString()}</p>
+                  <div className="glass-card p-6">
+                    <h3 className="font-bold text-lg mb-4">Recent Activity</h3>
+                    <div className="space-y-3">
+                      {transactions.slice(0, 5).map((t: any) => (
+                        <div key={t.id} className="flex justify-between items-center text-sm border-b border-white/5 pb-2 last:border-0">
+                          <div>
+                            <p className="text-white font-medium">{t.type.toUpperCase()} - {t.metal_type.replace('_', ' ')}</p>
+                            <p className="text-white/30 text-xs">{new Date(t.created_at).toLocaleDateString()}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                            {t.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-sm">{t.amount_in_grams}g</p>
-                  <p className={`text-[8px] font-bold uppercase ${t.type === 'buy' ? 'text-green-500' : 'text-aurum-red'}`}>
-                    {t.type} {t.metal_type.replace('_', ' ')}
-                  </p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="glass-card overflow-hidden">
+              <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={16} />
+                  <input 
+                    type="text" 
+                    placeholder="Search customers..." 
+                    className="bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-gold w-64"
+                  />
+                </div>
+                <button className="flex items-center gap-2 px-4 py-2 bg-gold text-aurum-black rounded-lg text-sm font-bold">
+                  <Filter size={16} /> Filter
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/5 text-white/50 uppercase text-[10px] font-bold tracking-widest">
+                    <tr>
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">Email</th>
+                      <th className="px-6 py-4">Joined</th>
+                      <th className="px-6 py-4">Holdings (Gold/Silver)</th>
+                      <th className="px-6 py-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {users.map((u: any) => (
+                      <tr key={u.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4 font-medium">{u.name}</td>
+                        <td className="px-6 py-4 text-white/70">{u.email}</td>
+                        <td className="px-6 py-4 text-white/50">{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-gold text-xs">{(u.gold_999_balance + u.gold_916_balance).toFixed(3)}g</span>
+                            <span className="text-white/50 text-[10px]">{u.silver_balance.toFixed(2)}g Ag</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button 
+                            onClick={() => fetchUserDetails(u.id)}
+                            className="px-3 py-1 bg-white/10 hover:bg-gold hover:text-aurum-black rounded text-xs font-bold transition-colors"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'transactions' && (
+            <div className="glass-card overflow-hidden">
+              <div className="p-4 border-b border-white/5">
+                <h3 className="font-bold text-lg">All Transactions</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-white/5 text-white/50 uppercase text-[10px] font-bold tracking-widest">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">User</th>
+                      <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4">Metal</th>
+                      <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4">Value</th>
+                      <th className="px-6 py-4">Payment Ref</th>
+                      <th className="px-6 py-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {transactions.map((t: any) => (
+                      <tr key={t.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4 text-white/50">{new Date(t.created_at).toLocaleString()}</td>
+                        <td className="px-6 py-4 text-white/70">
+                          <div>
+                            <p className="font-bold text-xs">{t.user_name}</p>
+                            <p className="text-[10px] text-white/30">#{t.user_id}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 uppercase font-bold text-xs">{t.type}</td>
+                        <td className="px-6 py-4 uppercase text-xs tracking-wider">{t.metal_type.replace('_', ' ')}</td>
+                        <td className="px-6 py-4 font-mono">{t.amount_in_grams}g</td>
+                        <td className="px-6 py-4 font-mono text-gold">₹{t.amount_in_currency || 0}</td>
+                        <td className="px-6 py-4 font-mono text-[10px] text-white/50">{t.payment_id || '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                            {t.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* User Details Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-white/10 flex justify-between items-center sticky top-0 bg-[#111] z-10">
+              <h2 className="text-xl font-bold font-serif">Customer Details</h2>
+              <button onClick={() => setSelectedUser(null)} className="p-2 hover:bg-white/10 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-8">
+              {/* Profile Header */}
+              <div className="flex items-center gap-6">
+                <div className="w-20 h-20 bg-gold/10 rounded-full flex items-center justify-center text-gold">
+                  <UserIcon size={40} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">{selectedUser.user.name}</h3>
+                  <p className="text-white/50">{selectedUser.user.email}</p>
+                  <p className="text-white/30 text-xs mt-1">Joined: {new Date(selectedUser.user.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
-            ))}
+
+              {/* Holdings */}
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-white/50 mb-4">Current Holdings</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                    <p className="text-[10px] uppercase text-white/50">24K Gold</p>
+                    <p className="text-xl font-bold text-gold">{selectedUser.user.gold_999_balance.toFixed(4)}g</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                    <p className="text-[10px] uppercase text-white/50">22K Gold</p>
+                    <p className="text-xl font-bold text-gold">{selectedUser.user.gold_916_balance.toFixed(4)}g</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                    <p className="text-[10px] uppercase text-white/50">Silver</p>
+                    <p className="text-xl font-bold text-white">{selectedUser.user.silver_balance.toFixed(4)}g</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transaction History */}
+              <div>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-white/50 mb-4">Transaction History</h4>
+                <div className="border border-white/10 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white/5 text-white/50 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Metal</th>
+                        <th className="px-4 py-3">Qty</th>
+                        <th className="px-4 py-3">Amount</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {selectedUser.transactions.map((t: any) => (
+                        <tr key={t.id}>
+                          <td className="px-4 py-3 text-white/50">{new Date(t.created_at).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 uppercase font-bold text-xs">{t.type}</td>
+                          <td className="px-4 py-3 uppercase text-xs">{t.metal_type.replace('_', ' ')}</td>
+                          <td className="px-4 py-3">{t.amount_in_grams}g</td>
+                          <td className="px-4 py-3 text-gold">₹{t.amount_in_currency}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] px-2 py-0.5 rounded ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                              {t.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
-        </section>
-      </main>
-      <Navbar />
+        </div>
+      )}
     </div>
   );
 };
+
 
 const Profile = () => {
   const { user, token, logout } = useAuth();
@@ -1096,7 +1280,11 @@ const Profile = () => {
   );
 };
 
-// --- Main App ---
+const CustomerLayout = ({ children }: { children: React.ReactNode }) => (
+  <div className="max-w-md mx-auto min-h-screen bg-aurum-black shadow-2xl relative text-white">
+    {children}
+  </div>
+);
 
 const AppContent = () => {
   const { user, token, isLoading } = useAuth();
@@ -1112,21 +1300,21 @@ const AppContent = () => {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/login" element={!token ? <CustomerLogin /> : <Navigate to={user?.role === 'admin' ? '/admin' : '/'} />} />
-      <Route path="/admin/login" element={!token ? <AdminLogin /> : <Navigate to="/admin" />} />
+      <Route path="/login" element={!token ? <CustomerLayout><CustomerLogin /></CustomerLayout> : <Navigate to={user?.role === 'admin' ? '/admin' : '/'} />} />
+      <Route path="/admin/login" element={!token ? <CustomerLayout><AdminLogin /></CustomerLayout> : <Navigate to="/admin" />} />
 
       {/* Customer Routes */}
-      <Route path="/" element={token && user?.role === 'customer' ? <Dashboard /> : <Navigate to="/login" />} />
-      <Route path="/buy" element={token && user?.role === 'customer' ? <BuyGold /> : <Navigate to="/login" />} />
-      <Route path="/redeem" element={token && user?.role === 'customer' ? <RedeemGold /> : <Navigate to="/login" />} />
+      <Route path="/" element={token && user?.role === 'customer' ? <CustomerLayout><Dashboard /></CustomerLayout> : <Navigate to="/login" />} />
+      <Route path="/buy" element={token && user?.role === 'customer' ? <CustomerLayout><BuyGold /></CustomerLayout> : <Navigate to="/login" />} />
+      <Route path="/redeem" element={token && user?.role === 'customer' ? <CustomerLayout><RedeemGold /></CustomerLayout> : <Navigate to="/login" />} />
       
-      {/* Admin Routes */}
+      {/* Admin Routes - Full Screen */}
       <Route path="/admin" element={token && user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
       <Route path="/admin/inventory" element={token && user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
       <Route path="/admin/reports" element={token && user?.role === 'admin' ? <AdminReports /> : <Navigate to="/admin/login" />} />
 
       {/* Shared Routes */}
-      <Route path="/profile" element={token ? <Profile /> : <Navigate to="/login" />} />
+      <Route path="/profile" element={token ? <CustomerLayout><Profile /></CustomerLayout> : <Navigate to="/login" />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />
@@ -1138,7 +1326,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="max-w-md mx-auto min-h-screen bg-aurum-black shadow-2xl relative text-white">
+        <div className="min-h-screen bg-aurum-black shadow-2xl relative text-white">
           <AppContent />
           <Toaster position="top-center" />
         </div>

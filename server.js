@@ -312,6 +312,34 @@ app.post("/api/redeem", authenticateToken, (req, res) => {
 });
 
 // Admin: Reports and Stats
+app.get("/api/admin/users", authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  try {
+    const users = db.prepare(`
+      SELECT id, name, email, role, created_at, 
+      gold_999_balance, gold_916_balance, silver_balance 
+      FROM users WHERE role = 'customer' ORDER BY created_at DESC
+    `).all();
+    res.json(users);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/admin/users/:id", authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.sendStatus(403);
+  try {
+    const user = db.prepare("SELECT id, name, email, created_at, gold_999_balance, gold_916_balance, silver_balance FROM users WHERE id = ?").get(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    
+    const transactions = db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC").all(req.params.id);
+    
+    res.json({ user, transactions });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("/api/admin/stats", authenticateToken, (req, res) => {
   if (req.user.role !== 'admin') return res.sendStatus(403);
   
