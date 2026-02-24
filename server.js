@@ -65,21 +65,34 @@ db.exec(`
   );
 `);
 
+// Helper to strip quotes from Hostinger env vars
+const cleanEnv = (val) => val ? val.replace(/^'|'$/g, '').replace(/^"|"$/g, '') : val;
+
 // Seed initial prices if not exist
 const seedPrices = db.prepare("INSERT OR IGNORE INTO prices (metal_type, price_per_gram) VALUES (?, ?)");
 seedPrices.run('gold_999', 7500);
 seedPrices.run('gold_916', 6800);
 seedPrices.run('silver', 95);
 
-// Seed Admin
+// Seed or Update Admin
+const adminEmail = cleanEnv(process.env.ADMIN_EMAIL) || 'admin@auragoldelite.com';
+const adminPassword = cleanEnv(process.env.ADMIN_PASSWORD) || 'admin123';
 const adminCheck = db.prepare("SELECT * FROM users WHERE role = 'admin'").get();
+
 if (!adminCheck) {
-  const hashedPassword = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10);
+  const hashedPassword = bcrypt.hashSync(adminPassword, 10);
   db.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)").run(
     'Admin', 
-    process.env.ADMIN_EMAIL || 'admin@aurumgold.com', 
+    adminEmail, 
     hashedPassword, 
     'admin'
+  );
+} else {
+  // Always update admin credentials to match the current .env file
+  const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+  db.prepare("UPDATE users SET email = ?, password = ? WHERE role = 'admin'").run(
+    adminEmail,
+    hashedPassword
   );
 }
 
@@ -89,7 +102,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || "gold-secret";
+const JWT_SECRET = cleanEnv(process.env.JWT_SECRET) || "gold-secret";
 
 // Middleware
 const authenticateToken = (req, res, next) => {
@@ -162,8 +175,8 @@ app.get("/api/user/transactions", authenticateToken, (req, res) => {
 
 // Razorpay Integration
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret',
+  key_id: cleanEnv(process.env.RAZORPAY_KEY_ID) || 'rzp_test_placeholder',
+  key_secret: cleanEnv(process.env.RAZORPAY_KEY_SECRET) || 'placeholder_secret',
 });
 
 app.post("/api/payments/create-order", authenticateToken, async (req, res) => {
