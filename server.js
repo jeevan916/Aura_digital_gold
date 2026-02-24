@@ -13,20 +13,34 @@ import dotenv from "dotenv";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Check if Hostinger specific .env exists
-const hostingerEnvPath1 = "/public_html/.builds/config/.env";
-const hostingerEnvPath2 = path.resolve(__dirname, ".builds/config/.env");
-const hostingerEnvPath3 = path.resolve(__dirname, "../.builds/config/.env");
-
-if (fs.existsSync(hostingerEnvPath1)) {
-  dotenv.config({ path: hostingerEnvPath1 });
-} else if (fs.existsSync(hostingerEnvPath2)) {
-  dotenv.config({ path: hostingerEnvPath2 });
-} else if (fs.existsSync(hostingerEnvPath3)) {
-  dotenv.config({ path: hostingerEnvPath3 });
-} else {
-  dotenv.config();
+// Find Hostinger .env file by walking up directories
+let currentDir = __dirname;
+let foundEnvPath = null;
+while (currentDir !== path.parse(currentDir).root) {
+  const checkPath = path.join(currentDir, '.builds/config/.env');
+  if (fs.existsSync(checkPath)) {
+    foundEnvPath = checkPath;
+    break;
+  }
+  currentDir = path.dirname(currentDir);
 }
+
+if (foundEnvPath) {
+  dotenv.config({ path: foundEnvPath });
+} else {
+  dotenv.config(); // Fallback to local .env
+}
+
+// Also try loading from process.env directly if Hostinger injected them
+const getEnv = (key) => {
+  let val = process.env[key];
+  if (!val) return val;
+  val = val.trim();
+  while (val.length > 1 && ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"')))) {
+    val = val.slice(1, -1);
+  }
+  return val;
+};
 
 const db = new Database("gold_app.db");
 
@@ -65,9 +79,6 @@ db.exec(`
   );
 `);
 
-// Helper to strip quotes from Hostinger env vars
-const cleanEnv = (val) => val ? val.replace(/^'|'$/g, '').replace(/^"|"$/g, '') : val;
-
 // Seed initial prices if not exist
 const seedPrices = db.prepare("INSERT OR IGNORE INTO prices (metal_type, price_per_gram) VALUES (?, ?)");
 seedPrices.run('gold_999', 7500);
@@ -75,8 +86,8 @@ seedPrices.run('gold_916', 6800);
 seedPrices.run('silver', 95);
 
 // Seed or Update Admin
-const adminEmail = cleanEnv(process.env.ADMIN_EMAIL) || 'admin@auragoldelite.com';
-const adminPassword = cleanEnv(process.env.ADMIN_PASSWORD) || 'admin123';
+const adminEmail = getEnv('ADMIN_EMAIL') || 'admin@auragoldelite.com';
+const adminPassword = getEnv('ADMIN_PASSWORD') || 'admin123';
 const adminCheck = db.prepare("SELECT * FROM users WHERE role = 'admin'").get();
 
 if (!adminCheck) {
@@ -90,19 +101,45 @@ if (!adminCheck) {
 } else {
   // Always update admin credentials to match the current .env file
   const hashedPassword = bcrypt.hashSync(adminPassword, 10);
-  db.prepare("UPDATE users SET email = ?, password = ? WHERE role = 'admin'").run(
-    adminEmail,
-    hashedPassword
-  );
+  try {
+    // Check if the email is already taken by a non-admin
+    const existingUser = db.prepare("SELECT * FROM users WHERE email = ? AND role != 'admin'").get(adminEmail);
+    if (existingUser) {
+      // If taken, we can't update the admin email to this. We'll just update the password.
+      db.prepare("UPDATE users SET password = ? WHERE role = 'admin'").run(hashedPassword);
+      console.error(`Cannot update admin email to ${adminEmail} because a customer already uses it.`);
+    } else {
+      db.prepare("UPDATE users SET email = ?, password = ? WHERE role = 'admin'").run(
+        adminEmail,
+        hashedPassword
+      );
+    }
+  } catch (e) {
+    console.error("Failed to update admin credentials:", e);
+  }
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = getEnv('PORT') || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = cleanEnv(process.env.JWT_SECRET) || "gold-secret";
+// Temporary debug route to see what env vars Hostinger is actually passing
+app.get("/api/debug/env", (req, res) => {
+  res.json({
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+    CLEAN_EMAIL: getEnv('ADMIN_EMAIL'),
+    CLEAN_PASSWORD: getEnv('ADMIN_PASSWORD'),
+    DEFAULT_EMAIL: adminEmail,
+    DEFAULT_PASSWORD: adminPassword,
+    DIRNAME: __dirname,
+    FOUND_ENV_PATH: foundEnvPath
+  });
+});
+
+const JWT_SECRET = getEnv('JWT_SECRET') || "gold-secret";
 
 // Middleware
 const authenticateToken = (req, res, next) => {
@@ -175,8 +212,8 @@ app.get("/api/user/transactions", authenticateToken, (req, res) => {
 
 // Razorpay Integration
 const razorpay = new Razorpay({
-  key_id: cleanEnv(process.env.RAZORPAY_KEY_ID) || 'rzp_test_placeholder',
-  key_secret: cleanEnv(process.env.RAZORPAY_KEY_SECRET) || 'placeholder_secret',
+  key_id: getEnv('RAZORPAY_KEY_ID') || 'rzp_test_placeholder',
+  key_secret: getEnv('RAZORPAY_KEY_SECRET') || 'placeholder_secret',
 });
 
 app.post("/api/payments/create-order", authenticateToken, async (req, res) => {
