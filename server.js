@@ -570,16 +570,28 @@ app.get("/api/admin/raw-price-data", authenticateToken, (req, res) => {
 async function startServer() {
   // Fetch initial prices
   fetchLivePrices().catch(console.error);
-  if (process.env.NODE_ENV !== "production") {
+  // Check if build directory exists to determine if we are in production mode
+  let buildPath = path.join(__dirname, "build");
+  const publicHtmlPath = path.resolve(__dirname, "../public_html");
+  
+  if (!fs.existsSync(buildPath) && fs.existsSync(path.join(publicHtmlPath, "index.html"))) {
+    buildPath = publicHtmlPath;
+  }
+
+  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(buildPath);
+
+  if (!isProduction) {
+    console.log("Starting in development mode with Vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "build")));
+    console.log("Starting in production mode, serving static files from:", buildPath);
+    app.use(express.static(buildPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "build", "index.html"));
+      res.sendFile(path.join(buildPath, "index.html"));
     });
   }
 
