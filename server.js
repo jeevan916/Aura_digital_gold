@@ -10,7 +10,7 @@ import jwt from "jsonwebtoken";
 import Razorpay from "razorpay";
 import dotenv from "dotenv";
 import axios from "axios";
-import { XMLParser } from "fast-xml-parser";
+// import { XMLParser } from "fast-xml-parser";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -483,38 +483,47 @@ app.post("/api/admin/transactions/:id/status", authenticateToken, (req, res) => 
   }
 });
 
-const parser = new XMLParser();
+// Remove XMLParser as it's no longer needed for the new JSON API
+// const parser = new XMLParser();
 
 let lastRawPriceData = null;
 
 async function fetchLivePrices() {
   try {
-    const url = "https://bcast.sagarjewellers.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/sagar";
+    const url = "https://order.auragoldelite.com/api/gold-rate";
     const response = await axios.get(url, { timeout: 10000 });
-    const jsonObj = parser.parse(response.data);
-    lastRawPriceData = jsonObj;
+    const data = response.data;
+    lastRawPriceData = data;
     
-    // The structure is likely jsonObj.LiveRates.Rate or similar
-    // We'll search for the specific symbol names
-    const rates = jsonObj?.VOTSBroadcast?.Rate || jsonObj?.LiveRates?.Rate || [];
-    const ratesArray = Array.isArray(rates) ? rates : [rates];
-
+    // Assuming the new API returns JSON with clear keys
+    // We'll try to find gold and silver rates
     let gold999 = null;
     let silver = null;
 
-    for (const r of ratesArray) {
-      const name = r.SymbolName || r.Symbol || "";
-      const bid = parseFloat(r.Bid || r.Buy || r.Rate || 0);
+    // Based on typical JSON structures for such APIs
+    if (data.gold_999 || data.gold) {
+      gold999 = parseFloat(data.gold_999 || data.gold);
+    } else if (data.rates && data.rates.gold) {
+      gold999 = parseFloat(data.rates.gold);
+    }
 
-      if (name.includes("GOLD NAGPUR 99.9 RTGS")) {
-        // Assuming 159085 is for 20g, so divide by 20 to get per gram
-        // Or if it's for 10g, divide by 10. 
-        // Based on current market (approx 7500-8000), 159085/20 = 7954.
-        gold999 = bid / 20; 
-      }
-      if (name.includes("SILVER NAGPUR RTGS") && !name.includes("GST")) {
-        // Assuming 260000 is for 1kg, so divide by 1000 to get per gram
-        silver = bid / 1000;
+    if (data.silver) {
+      silver = parseFloat(data.silver);
+    } else if (data.rates && data.rates.silver) {
+      silver = parseFloat(data.rates.silver);
+    }
+
+    // If the structure is still the same as before but in JSON
+    if (!gold999 && Array.isArray(data)) {
+      for (const r of data) {
+        const name = r.SymbolName || r.Symbol || r.name || "";
+        const bid = parseFloat(r.Bid || r.Buy || r.Rate || r.price || 0);
+        if (name.includes("GOLD NAGPUR 99.9 RTGS") || name.toLowerCase().includes("gold 999")) {
+          gold999 = bid / 20; // Keeping the same conversion logic if it's the same source
+        }
+        if ((name.includes("SILVER NAGPUR RTGS") || name.toLowerCase().includes("silver")) && !name.includes("GST")) {
+          silver = bid / 1000;
+        }
       }
     }
 
@@ -522,7 +531,6 @@ async function fetchLivePrices() {
       db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
         .run('gold_999', gold999);
       
-      // Calculate 22K (916) as 91.6% of 24K if not explicitly provided
       const gold916 = gold999 * 0.916;
       db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
         .run('gold_916', gold916);
@@ -533,10 +541,10 @@ async function fetchLivePrices() {
         .run('silver', silver);
     }
 
-    console.log("Live prices updated successfully:", { gold999, silver });
+    console.log("Live prices updated from Aura API:", { gold999, silver });
     return { success: true, prices: { gold_999: gold999, silver } };
   } catch (error) {
-    console.error("Error fetching live prices:", error.message);
+    console.error("Error fetching live prices from Aura API:", error.message);
     return { success: false, error: error.message };
   }
 }
