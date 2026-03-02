@@ -17,46 +17,46 @@ export const Navbar = () => {
 
   if (user.role === 'admin') {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 glass-card rounded-none border-x-0 border-b-0 px-6 py-4 flex justify-around items-center z-50">
-        <Link to="/admin" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-          <LayoutDashboard size={24} />
-          <span className="text-[10px] font-medium tracking-widest uppercase">Dash</span>
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md glass-card px-8 py-4 flex justify-around items-center z-50 shadow-2xl border-white/10">
+        <Link to="/admin" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-primary transition-all hover:scale-110">
+          <LayoutDashboard size={22} />
+          <span className="text-[10px] font-bold tracking-widest uppercase">Dash</span>
         </Link>
-        <Link to="/admin/inventory" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-          <Coins size={24} />
-          <span className="text-[10px] font-medium tracking-widest uppercase">Prices</span>
+        <Link to="/admin/inventory" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-primary transition-all hover:scale-110">
+          <Coins size={22} />
+          <span className="text-[10px] font-bold tracking-widest uppercase">Prices</span>
         </Link>
-        <Link to="/admin/reports" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-          <TrendingUp size={24} />
-          <span className="text-[10px] font-medium tracking-widest uppercase">Reports</span>
+        <Link to="/admin/reports" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-primary transition-all hover:scale-110">
+          <TrendingUp size={22} />
+          <span className="text-[10px] font-bold tracking-widest uppercase">Stats</span>
         </Link>
-        <Link to="/profile" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-          <UserIcon size={24} />
-          <span className="text-[10px] font-medium tracking-widest uppercase">Profile</span>
+        <Link to="/profile" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-primary transition-all hover:scale-110">
+          <UserIcon size={22} />
+          <span className="text-[10px] font-bold tracking-widest uppercase">Admin</span>
         </Link>
       </nav>
     );
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 glass-card rounded-none border-x-0 border-b-0 px-6 py-4 flex justify-between items-center z-50 md:top-0 md:bottom-auto md:border-b md:border-t-0">
-      <Link to="/" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-        <LayoutDashboard size={24} />
-        <span className="text-[10px] font-medium tracking-widest uppercase">Home</span>
+    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md glass-card px-8 py-4 flex justify-between items-center z-50 shadow-2xl border-white/10">
+      <Link to="/" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-primary transition-all hover:scale-110">
+        <LayoutDashboard size={22} />
+        <span className="text-[10px] font-bold tracking-widest uppercase">Home</span>
       </Link>
-      <Link to="/buy" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-        <div className="bg-gold text-aurum-black rounded-full p-2 neon-glow">
-          <Plus size={24} />
+      <Link to="/buy" className="flex flex-col items-center gap-1 group">
+        <div className="brand-gradient text-white rounded-2xl p-3 shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all neon-glow-primary -mt-8">
+          <Plus size={24} strokeWidth={3} />
         </div>
-        <span className="text-[10px] font-medium tracking-widest uppercase mt-1">Buy</span>
+        <span className="text-[10px] font-bold tracking-widest uppercase mt-1 text-brand-primary">Invest</span>
       </Link>
-      <Link to="/redeem" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-        <Store size={24} />
-        <span className="text-[10px] font-medium tracking-widest uppercase">Redeem</span>
+      <Link to="/redeem" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-secondary transition-all hover:scale-110">
+        <Store size={22} />
+        <span className="text-[10px] font-bold tracking-widest uppercase">Redeem</span>
       </Link>
-      <Link to="/profile" className="flex flex-col items-center gap-1 text-white/50 hover:text-gold transition-colors">
-        <UserIcon size={24} />
-        <span className="text-[10px] font-medium tracking-widest uppercase">Profile</span>
+      <Link to="/profile" className="flex flex-col items-center gap-1 text-white/40 hover:text-brand-primary transition-all hover:scale-110">
+        <UserIcon size={22} />
+        <span className="text-[10px] font-bold tracking-widest uppercase">Me</span>
       </Link>
     </nav>
   );

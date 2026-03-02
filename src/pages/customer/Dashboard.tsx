@@ -41,133 +41,151 @@ export const Dashboard = () => {
   const profitPercentage = totalInvestment > 0 ? (totalProfit / totalInvestment) * 100 : 0;
 
   return (
-    <div className="pb-24 min-h-screen bg-aurum-black text-white">
+    <div className="pb-24 min-h-screen bg-background text-white selection:bg-brand-primary/30">
       <Header />
-      <main className="p-6 space-y-6">
-        {/* Balance Card */}
+      <main className="p-6 space-y-8 max-w-2xl mx-auto">
+        {/* Portfolio Hero */}
         <motion.div 
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="red-gradient rounded-3xl p-6 text-white shadow-xl relative overflow-hidden"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="brand-gradient rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden neon-glow-primary"
         >
           <div className="relative z-10">
-            <p className="text-white/70 text-sm font-medium uppercase tracking-wider">Current Portfolio Value</p>
-            <h2 className="text-4xl font-bold mt-1 font-serif">
-              ₹{currentPortfolioValue.toLocaleString('en-IN')}
-            </h2>
-            
-            <div className="mt-4 flex items-center gap-2">
-              <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 ${totalProfit >= 0 ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                {totalProfit >= 0 ? <ArrowUpRight size={12} /> : <TrendingUp size={12} className="rotate-180" />}
-                {totalProfit >= 0 ? '+' : ''}₹{Math.abs(totalProfit).toLocaleString('en-IN')} ({profitPercentage.toFixed(2)}%)
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-white/80 text-xs font-bold uppercase tracking-[0.2em]">Net Worth</p>
+                <h2 className="text-5xl font-extrabold mt-2 tracking-tight">
+                  ₹{currentPortfolioValue.toLocaleString('en-IN')}
+                </h2>
               </div>
-              <span className="text-white/50 text-[10px] uppercase font-bold tracking-widest">Total Appreciation</span>
+              <div className="bg-white/20 backdrop-blur-md p-2 rounded-2xl">
+                <TrendingUp size={24} className="text-white" />
+              </div>
+            </div>
+            
+            <div className="mt-8 flex items-center gap-3">
+              <div className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 ${totalProfit >= 0 ? 'bg-emerald-400 text-emerald-950' : 'bg-rose-400 text-rose-950'}`}>
+                {totalProfit >= 0 ? <ArrowUpRight size={14} /> : <TrendingUp size={14} className="rotate-180" />}
+                {totalProfit >= 0 ? '+' : ''}₹{Math.abs(totalProfit).toLocaleString('en-IN')}
+              </div>
+              <span className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Total Growth</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mt-8">
-              <div className="text-center">
-                <p className="text-[10px] text-white/60 uppercase">24K Gold</p>
-                <p className="font-bold">{user.gold_999_balance.toFixed(3)}g</p>
+            <div className="mt-10 grid grid-cols-3 gap-6 pt-8 border-t border-white/10">
+              <div>
+                <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">24K Gold</p>
+                <p className="text-lg font-bold mt-1">{user.gold_999_balance.toFixed(3)}<span className="text-xs font-normal opacity-60 ml-0.5">g</span></p>
               </div>
-              <div className="text-center">
-                <p className="text-[10px] text-white/60 uppercase">22K Gold</p>
-                <p className="font-bold">{user.gold_916_balance.toFixed(3)}g</p>
+              <div>
+                <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">22K Gold</p>
+                <p className="text-lg font-bold mt-1">{user.gold_916_balance.toFixed(3)}<span className="text-xs font-normal opacity-60 ml-0.5">g</span></p>
               </div>
-              <div className="text-center">
-                <p className="text-[10px] text-white/60 uppercase">Silver</p>
-                <p className="font-bold">{user.silver_balance.toFixed(2)}g</p>
+              <div>
+                <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">Silver</p>
+                <p className="text-lg font-bold mt-1">{user.silver_balance.toFixed(2)}<span className="text-xs font-normal opacity-60 ml-0.5">g</span></p>
               </div>
             </div>
           </div>
-          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
+          
+          {/* Abstract background shapes for engagement */}
+          <div className="absolute -right-12 -top-12 w-48 h-48 bg-white/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-brand-secondary/20 rounded-full blur-3xl" />
         </motion.div>
 
-        {/* Savings Card */}
-        <div className="glass-card p-4 flex items-center gap-4">
-          <div className="bg-gold text-aurum-black p-3 rounded-xl neon-glow">
-            <TrendingUp size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] text-gold font-bold uppercase tracking-widest">Smart Savings</p>
-            <p className="text-sm text-white/80 font-medium mt-1">You've saved <span className="font-bold text-gold neon-text">₹{Math.max(0, totalProfit).toLocaleString('en-IN')}</span> through gold appreciation!</p>
-          </div>
+        {/* Quick Actions Bento */}
+        <div className="grid grid-cols-2 gap-4">
+          <Link to="/buy" className="glass-card p-6 flex flex-col justify-between h-40 group relative overflow-hidden">
+            <div className="bg-brand-primary/20 text-brand-primary p-3 rounded-2xl w-fit group-hover:scale-110 transition-transform">
+              <Plus size={24} />
+            </div>
+            <div>
+              <p className="text-lg font-bold">Buy Assets</p>
+              <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mt-1">Invest Now</p>
+            </div>
+            <div className="absolute -right-4 -bottom-4 text-brand-primary/5 group-hover:text-brand-primary/10 transition-colors">
+              <Coins size={100} />
+            </div>
+          </Link>
+          <Link to="/redeem" className="glass-card p-6 flex flex-col justify-between h-40 group relative overflow-hidden">
+            <div className="bg-brand-secondary/20 text-brand-secondary p-3 rounded-2xl w-fit group-hover:scale-110 transition-transform">
+              <Store size={24} />
+            </div>
+            <div>
+              <p className="text-lg font-bold">Redeem</p>
+              <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mt-1">Cash Out</p>
+            </div>
+            <div className="absolute -right-4 -bottom-4 text-brand-secondary/5 group-hover:text-brand-secondary/10 transition-colors">
+              <Store size={100} />
+            </div>
+          </Link>
         </div>
 
-        {/* Live Prices */}
-        <section className="space-y-4">
-          <div className="flex justify-between items-end">
-            <h3 className="font-serif text-xl font-bold">Live Market Prices</h3>
-            <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold">Updated just now</p>
+        {/* Live Market - Modern List */}
+        <section className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-extrabold tracking-tight">Live Market</h3>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Live</span>
+            </div>
           </div>
-          <div className="grid gap-3">
+          <div className="space-y-4">
             {prices.map((price) => (
-              <div key={price.id} className="glass-card p-4 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${price.metal_type.includes('gold') ? 'bg-gold/10 text-gold' : 'bg-white/10 text-white/70'}`}>
-                    <Coins size={20} />
+              <motion.div 
+                key={price.id} 
+                whileHover={{ x: 4 }}
+                className="glass-card p-5 flex justify-between items-center"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${price.metal_type.includes('gold') ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-500/10 text-slate-400'}`}>
+                    <Coins size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-sm">{price.metal_type === 'gold_999' ? '24K Gold (999)' : price.metal_type === 'gold_916' ? '22K Gold (916)' : 'Silver (999)'}</p>
-                    <p className="text-[10px] text-white/50 uppercase tracking-widest">Per Gram</p>
+                    <p className="font-bold text-base">{price.metal_type === 'gold_999' ? '24K Gold' : price.metal_type === 'gold_916' ? '22K Gold' : 'Pure Silver'}</p>
+                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Market Price</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-lg text-gold">₹{price.price_per_gram.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-green-400 flex items-center justify-end gap-0.5 font-bold">
-                    <ArrowUpRight size={10} /> +0.45%
+                  <p className="font-bold text-xl text-white">₹{price.price_per_gram.toLocaleString('en-IN')}</p>
+                  <p className="text-[10px] text-emerald-400 flex items-center justify-end gap-1 font-bold mt-1">
+                    <ArrowUpRight size={12} /> +0.45%
                   </p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </section>
 
-        {/* Recent Transactions */}
-        <section className="space-y-4">
+        {/* Recent Activity */}
+        <section className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="font-serif text-xl font-bold">Your Transactions</h3>
-            <Link to="/profile" className="text-xs text-gold font-bold uppercase tracking-widest">View All</Link>
+            <h3 className="text-xl font-extrabold tracking-tight">Recent Activity</h3>
+            <Link to="/profile" className="text-[10px] text-brand-primary font-bold uppercase tracking-widest hover:underline">See All</Link>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {transactions.slice(0, 3).map(t => (
-              <div key={t.id} className="glass-card p-4 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${t.type === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                    {t.type === 'buy' ? <Plus size={16} /> : <Store size={16} />}
+              <div key={t.id} className="flex justify-between items-center p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-2xl ${t.type === 'buy' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                    {t.type === 'buy' ? <Plus size={18} /> : <Store size={18} />}
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase text-white/70 tracking-wider">{t.type} {t.metal_type.replace('_', ' ')}</p>
-                    <p className="text-[10px] text-white/40">{new Date(t.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm font-bold capitalize">{t.type} {t.metal_type.replace('_', ' ')}</p>
+                    <p className="text-[10px] text-white/30 font-medium">{new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-sm">{t.amount_in_grams}g</p>
-                  {t.amount_in_currency && <p className="text-[10px] text-white/50">₹{t.amount_in_currency.toLocaleString('en-IN')}</p>}
+                  {t.amount_in_currency && <p className="text-[10px] text-white/40">₹{t.amount_in_currency.toLocaleString('en-IN')}</p>}
                 </div>
               </div>
             ))}
             {transactions.length === 0 && (
-              <div className="text-center py-8 glass-card border-dashed">
-                <p className="text-sm text-white/50">No transactions yet. Start your gold journey today!</p>
+              <div className="text-center py-12 glass-card border-dashed border-white/10">
+                <p className="text-sm text-white/30">No transactions yet. Start investing!</p>
               </div>
             )}
           </div>
-        </section>
-
-        {/* Quick Actions */}
-        <section className="grid grid-cols-2 gap-4">
-          <Link to="/buy" className="gold-gradient p-4 rounded-2xl flex flex-col items-center gap-2 shadow-lg">
-            <div className="bg-aurum-black text-gold p-2 rounded-full">
-              <Plus size={20} />
-            </div>
-            <span className="text-sm font-bold text-aurum-black uppercase tracking-widest">Buy Gold</span>
-          </Link>
-          <Link to="/redeem" className="glass-card p-4 flex flex-col items-center gap-2">
-            <div className="bg-white/10 text-white p-2 rounded-full">
-              <Store size={20} />
-            </div>
-            <span className="text-sm font-bold uppercase tracking-widest">Redeem</span>
-          </Link>
         </section>
       </main>
       <Navbar />
