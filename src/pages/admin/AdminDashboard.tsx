@@ -19,8 +19,10 @@ import {
   Coins,
   RefreshCw,
   Plus,
-  Minus
+  Minus,
+  QrCode
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ResponsiveContainer, 
@@ -240,6 +242,7 @@ export const AdminDashboard = () => {
           <SidebarItem id="transactions" icon={History} label="Ledger" />
           <SidebarItem id="reports" icon={TrendingUp} label="Analytics" />
           <SidebarItem id="orders" icon={Store} label="Redemptions" />
+          <SidebarItem id="qrpay" icon={QrCode} label="QR Pay" />
           <SidebarItem id="settings" icon={Settings} label="System" />
           
           <div className="pt-10 mt-10 border-t border-white/5">
@@ -688,7 +691,7 @@ export const AdminDashboard = () => {
           {activeTab === 'orders' && (
             <div className="glass-card overflow-hidden">
               <div className="p-4 border-b border-white/5">
-                <h3 className="font-bold text-lg">Pending Redemptions</h3>
+                <h3 className="font-bold text-lg">Redemption History</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -698,33 +701,93 @@ export const AdminDashboard = () => {
                       <th className="px-6 py-4">User</th>
                       <th className="px-6 py-4">Metal</th>
                       <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {transactions.filter(t => t.type === 'redeem' && t.status === 'pending_at_store').map((t: any) => (
+                    {transactions.filter(t => t.type === 'redeem').map((t: any) => (
                       <tr key={t.id} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4 text-white/50">{new Date(t.created_at).toLocaleString()}</td>
                         <td className="px-6 py-4 text-white/70">{t.user_name}</td>
                         <td className="px-6 py-4 uppercase text-xs">{t.metal_type.replace('_', ' ')}</td>
                         <td className="px-6 py-4 font-mono">{t.amount_in_grams}g</td>
                         <td className="px-6 py-4">
-                          <button 
-                            onClick={() => updateTransactionStatus(t.id, 'completed')}
-                            className="px-3 py-1 bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white rounded text-xs font-bold transition-colors flex items-center gap-2"
-                          >
-                            <Check size={14} /> Mark Completed
-                          </button>
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${
+                            t.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                          }`}>
+                            {t.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {t.status === 'pending_at_store' && (
+                            <button 
+                              onClick={() => updateTransactionStatus(t.id, 'completed')}
+                              className="px-3 py-1 bg-green-500/20 text-green-400 hover:bg-green-500 hover:text-white rounded text-xs font-bold transition-colors flex items-center gap-2"
+                            >
+                              <Check size={14} /> Mark Completed
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
-                    {transactions.filter(t => t.type === 'redeem' && t.status === 'pending_at_store').length === 0 && (
+                    {transactions.filter(t => t.type === 'redeem').length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-6 py-8 text-center text-white/30 italic">No pending redemptions</td>
+                        <td colSpan={6} className="px-6 py-8 text-center text-white/30 italic">No redemptions found</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'qrpay' && (
+            <div className="max-w-md mx-auto space-y-6">
+              <div className="glass-card p-8 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 brand-gradient"></div>
+                
+                <div className="w-16 h-16 rounded-full bg-brand-primary/10 flex items-center justify-center mx-auto mb-6">
+                  <QrCode className="text-brand-primary" size={32} />
+                </div>
+                
+                <h2 className="text-2xl font-black tracking-tight mb-2">Scan to Pay</h2>
+                <p className="text-white/50 text-sm mb-8">
+                  Customers can scan this QR code to initiate a redemption directly from their wallet.
+                </p>
+                
+                <div className="bg-white p-6 rounded-3xl inline-block mx-auto shadow-2xl shadow-brand-primary/20 mb-8">
+                  <QRCodeSVG 
+                    value={`${window.location.origin}/redeem`} 
+                    size={240}
+                    level="H"
+                    includeMargin={true}
+                    fgColor="#000000"
+                    bgColor="#FFFFFF"
+                  />
+                </div>
+                
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-left">
+                  <h4 className="text-xs font-bold text-white/70 uppercase tracking-wider mb-3">How it works</h4>
+                  <ol className="space-y-3 text-sm text-white/50">
+                    <li className="flex gap-3">
+                      <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                      <span>Customer scans QR code with any scanner or camera.</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                      <span>They select wallet and enter amount.</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                      <span>They verify with WhatsApp OTP.</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="w-5 h-5 rounded-full bg-brand-primary/20 text-brand-primary flex items-center justify-center text-xs font-bold shrink-0">4</span>
+                      <span>Transaction completes and you receive a WhatsApp notification.</span>
+                    </li>
+                  </ol>
+                </div>
               </div>
             </div>
           )}

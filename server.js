@@ -90,6 +90,16 @@ db.exec(`
     FOREIGN KEY(user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS otps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    code TEXT NOT NULL,
+    action TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS prices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     metal_type TEXT UNIQUE,
@@ -305,6 +315,103 @@ app.post("/api/payments/verify", authenticateToken, (req, res) => {
 });
 
 // Redemption
+// Helper to send WhatsApp messages (Mock for now)
+const sendWhatsAppMessage = async (mobile, message) => {
+  console.log(`[WhatsApp Mock] Sending to ${mobile}: ${message}`);
+  // TODO: Integrate actual WhatsApp API (e.g., Twilio, Meta Graph API, etc.)
+  return true;
+};
+
+app.post("/api/redeem/initiate", authenticateToken, async (req, res) => {
+  const { metal_type, amount_type, amount } = req.body; // amount_type: 'grams' or 'rupees'
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+  
+  if (!user.mobile) {
+    return res.status(400).json({ error: "No mobile number registered for OTP." });
+  }
+
+  let gramsToDeduct = parseFloat(amount);
+  let rupeesAmount = 0;
+
+  if (amount_type === 'rupees') {
+    rupeesAmount = parseFloat(amount);
+    const priceRow = db.prepare("SELECT price_per_gram FROM prices WHERE metal_type = ?").get(metal_type);
+    if (!priceRow) return res.status(400).json({ error: "Price not found" });
+    gramsToDeduct = rupeesAmount / priceRow.price_per_gram;
+  } else {
+    const priceRow = db.prepare("SELECT price_per_gram FROM prices WHERE metal_type = ?").get(metal_type);
+    if (priceRow) {
+      rupeesAmount = gramsToDeduct * priceRow.price_per_gram;
+    }
+  }
+
+  const balanceField = `${metal_type}_balance`;
+  if (user[balanceField] < gramsToDeduct) {
+    return res.status(400).json({ error: "Insufficient balance" });
+  }
+
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 mins expiry
+
+  db.prepare("INSERT INTO otps (user_id, code, action, expires_at) VALUES (?, ?, ?, ?)")
+    .run(req.user.id, otp, 'redeem', expiresAt);
+
+  // Send OTP via WhatsApp
+  await sendWhatsAppMessage(user.mobile, `Your Aura Gold Elite transaction code is: ${otp}. Do not share this with anyone.`);
+
+  res.json({ success: true, message: "OTP sent to your WhatsApp number.", grams: gramsToDeduct, rupees: rupeesAmount });
+});
+
+app.post("/api/redeem/confirm", authenticateToken, async (req, res) => {
+  const { metal_type, amount_type, amount, otp } = req.body;
+  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
+
+  // Verify OTP
+  const otpRecord = db.prepare("SELECT * FROM otps WHERE user_id = ? AND action = 'redeem' AND code = ? AND expires_at > CURRENT_TIMESTAMP ORDER BY id DESC LIMIT 1")
+    .get(req.user.id, otp);
+
+  if (!otpRecord) {
+    return res.status(400).json({ error: "Invalid or expired OTP." });
+  }
+
+  let gramsToDeduct = parseFloat(amount);
+  let rupeesAmount = 0;
+
+  if (amount_type === 'rupees') {
+    rupeesAmount = parseFloat(amount);
+    const priceRow = db.prepare("SELECT price_per_gram FROM prices WHERE metal_type = ?").get(metal_type);
+    if (!priceRow) return res.status(400).json({ error: "Price not found" });
+    gramsToDeduct = rupeesAmount / priceRow.price_per_gram;
+  } else {
+    const priceRow = db.prepare("SELECT price_per_gram FROM prices WHERE metal_type = ?").get(metal_type);
+    if (priceRow) {
+      rupeesAmount = gramsToDeduct * priceRow.price_per_gram;
+    }
+  }
+
+  const balanceField = `${metal_type}_balance`;
+  if (user[balanceField] < gramsToDeduct) {
+    return res.status(400).json({ error: "Insufficient balance" });
+  }
+
+  db.transaction(() => {
+    // Deduct balance
+    db.prepare(`UPDATE users SET ${balanceField} = ${balanceField} - ? WHERE id = ?`).run(gramsToDeduct, req.user.id);
+    // Insert transaction
+    db.prepare("INSERT INTO transactions (user_id, type, metal_type, amount_in_grams, amount_in_currency, status) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(req.user.id, 'redeem', metal_type, gramsToDeduct, rupeesAmount, 'completed');
+    // Invalidate OTP
+    db.prepare("UPDATE otps SET expires_at = CURRENT_TIMESTAMP WHERE id = ?").run(otpRecord.id);
+  })();
+
+  // Notify Admin via WhatsApp
+  const adminPhone = process.env.ADMIN_WHATSAPP || "Admin"; // Set this in .env
+  await sendWhatsAppMessage(adminPhone, `New Redemption: ${user.name} redeemed ${gramsToDeduct.toFixed(4)}g of ${metal_type} (₹${rupeesAmount.toFixed(2)}).`);
+
+  res.json({ success: true, message: "Redemption successful." });
+});
+
 app.post("/api/redeem", authenticateToken, (req, res) => {
   const { metal_type, grams } = req.body;
   const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.user.id);
@@ -501,10 +608,17 @@ async function fetchLivePrices() {
     let silver = null;
 
     // Based on typical JSON structures for such APIs
-    if (data.gold_999 || data.gold) {
+    if (data.k24) {
+      gold999 = parseFloat(data.k24);
+    } else if (data.gold_999 || data.gold) {
       gold999 = parseFloat(data.gold_999 || data.gold);
     } else if (data.rates && data.rates.gold) {
       gold999 = parseFloat(data.rates.gold);
+    }
+
+    let gold916 = null;
+    if (data.k22) {
+      gold916 = parseFloat(data.k22);
     }
 
     if (data.silver) {
@@ -531,9 +645,10 @@ async function fetchLivePrices() {
       db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
         .run('gold_999', gold999);
       
-      const gold916 = gold999 * 0.916;
+      // Use k22 from API if available, otherwise calculate it
+      const finalGold916 = gold916 || (gold999 * 0.916);
       db.prepare("INSERT OR REPLACE INTO prices (metal_type, price_per_gram, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
-        .run('gold_916', gold916);
+        .run('gold_916', finalGold916);
     }
 
     if (silver) {
